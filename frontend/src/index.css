@@ -479,6 +479,14 @@ html, body, #root {
   display: none;
 }
 
+/* FIX: Push tldraw’s top-left (main menu) and top-right (style panel)
+   xuống dưới header của chúng ta khi canvas là full-screen (top:0).
+   Nếu không có fix này, menu bị header (z-index:1000) che mất. */
+.canvas-wrapper .tlui-layout__top__left,
+.canvas-wrapper .tlui-layout__top__right {
+  padding-top: var(--header-height);
+}
+
 /* FIX 1: Custom color palette — override tldraw theme CSS variables
    Áp cho cả light và dark theme để đảm bảo màu hiển thị đúng.
    Mapping từ bảng màu 28 màu của người dùng → 13 slot của tldraw. */
