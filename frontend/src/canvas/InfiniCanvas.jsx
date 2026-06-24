@@ -1,17 +1,28 @@
 /**
  * InfiniCanvas.jsx — Core canvas component
- * - Tích hợp tldraw v2
- * - Đồng bộ real-time qua WebSocket (debounced 600ms)
- * - Ảnh paste/drop được xử lý bởi tldraw native → upload backend → URL persistent
- * - Fallback REST save khi WS offline
+ *
+ * Fix 2: Focus Mode — dùng components.InFrontOfTheCanvas để inject nút thoát
+ *         bên trong tldraw (tránh z-index & coordinate conflicts hoàn toàn)
+ * Fix 3: Stroke offset — canvas-wrapper top:0 full-screen (xem index.css)
+ * Fix 4: Settings sync — chỉ sync document scope, không ghi đè UI state
+ *         của thiết bị khác (camera, tool selection, color)
  */
-import { useCallback, useRef, useEffect } from 'react'
+import { useCallback, useRef, useEffect, useState } from 'react'
 import { Tldraw, useEditor } from '@tldraw/tldraw'
 import '@tldraw/tldraw/tldraw.css'
 import { useWebSocket } from './useWebSocket'
 import useStore from '../store/useStore'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+
+// Record types thuộc session scope (per-device) → KHÔNG sync giữa thiết bị
+const SESSION_TYPES = new Set([
+  'instance',
+  'instance_page_state',
+  'camera',
+  'pointer',
+  'instance_presence',
+])
 
 // ── Debounce helper ────────────────────────────────────────────
 function useDebounce(fn, delay) {
@@ -22,7 +33,7 @@ function useDebounce(fn, delay) {
   }, [fn, delay])
 }
 
-// ── Upload ảnh lên backend → Cloudinary (nếu có) hoặc objectURL fallback ──────
+// ── Upload ảnh lên Cloudinary qua backend, fallback objectURL ──
 async function uploadImageAsset(file, addToast) {
   try {
     const formData = new FormData()
@@ -37,15 +48,49 @@ async function uploadImageAsset(file, addToast) {
       return { url: data.url, width: data.width, height: data.height }
     }
   } catch (e) {
-    console.warn('[Image] Cloud upload failed, fallback to objectURL:', e)
+    console.warn('[Image] Cloud upload failed:', e)
   }
-  // Fallback: objectURL (chỉ hoạt động trong phiên hiện tại trên thiết bị này)
+  // Fallback: objectURL (chỉ tồn tại trong tab hiện tại)
   const url = URL.createObjectURL(file)
   addToast({ type: 'success', text: '📎 Ảnh đã thêm vào canvas!' })
   return { url, width: 0, height: 0 }
 }
 
-// ── Inner component (has access to editor) ─────────────────────
+// ── FIX 2: Focus Mode Exit Button ─────────────────────────────
+// Được inject qua components.InFrontOfTheCanvas — nằm TRONG tldraw render tree
+// nên useEditor() hoạt động và z-index + coordinate hoàn toàn chính xác.
+function FocusExitButton() {
+  const editor = useEditor()
+  const [isFocusMode, setIsFocusMode] = useState(false)
+
+  useEffect(() => {
+    if (!editor) return
+    // Sync state ngay lúc mount
+    setIsFocusMode(editor.getInstanceState().isFocusMode)
+    // Lắng nghe thay đổi session state (focus mode thay đổi trong instance)
+    return editor.store.listen(
+      () => setIsFocusMode(editor.getInstanceState().isFocusMode),
+      { scope: 'session', source: 'all' }
+    )
+  }, [editor])
+
+  if (!isFocusMode) return null
+
+  return (
+    <div className="focus-exit-overlay">
+      <button
+        className="focus-exit-btn"
+        onClick={() => editor.updateInstanceState({ isFocusMode: false })}
+        title="Thoát chế độ tập trung"
+      >
+        <span className="focus-exit-icon">⊕</span>
+        Thoát Focus Mode
+      </button>
+    </div>
+  )
+}
+
+// ── Canvas Inner (có editor context) ───────────────────────────
 function CanvasInner({ initialSnapshot }) {
   const editor = useEditor()
   const setSaveStatus = useStore(s => s.setSaveStatus)
@@ -54,13 +99,18 @@ function CanvasInner({ initialSnapshot }) {
   const isInitialized = useRef(false)
   const isSyncing = useRef(false)
 
-  // Load initial snapshot từ server khi mount
+  // Load snapshot từ server — chỉ áp document records, giữ nguyên UI state local
   useEffect(() => {
     if (!editor || isInitialized.current) return
     isInitialized.current = true
-    if (initialSnapshot) {
+    if (initialSnapshot?.store) {
       try {
-        editor.store.loadSnapshot(initialSnapshot)
+        const docRecords = Object.values(initialSnapshot.store)
+          .filter(r => !SESSION_TYPES.has(r.typeName))
+        if (docRecords.length > 0) {
+          // mergeRemoteChanges: đánh dấu là remote change → không re-broadcast
+          editor.store.mergeRemoteChanges(() => editor.store.put(docRecords))
+        }
       } catch (e) {
         console.warn('[Canvas] Could not load snapshot:', e)
       }
@@ -68,7 +118,7 @@ function CanvasInner({ initialSnapshot }) {
     setIsLoading(false)
   }, [editor, initialSnapshot, setIsLoading])
 
-  // ── Đăng ký asset handler: tldraw gọi khi user paste/drop ảnh ──
+  // Đăng ký asset handler: tldraw gọi khi user paste/drop ảnh
   useEffect(() => {
     if (!editor) return
     const handleAsset = async (asset, file) => {
@@ -83,7 +133,7 @@ function CanvasInner({ initialSnapshot }) {
     }
   }, [editor, addToast])
 
-  // Save snapshot via REST (fallback khi WS offline)
+  // REST fallback khi WebSocket offline
   const saveToServer = useCallback(async (snapshot) => {
     try {
       await fetch(`${API_URL}/api/board`, {
@@ -96,57 +146,60 @@ function CanvasInner({ initialSnapshot }) {
     }
   }, [])
 
-  // WS message handler
+  // FIX 4: WS handler — chỉ apply document records từ remote
+  // Không ghi đè camera/tool/color của thiết bị hiện tại
   const handleWsMessage = useCallback((msg) => {
     if (!editor || !msg) return
-    if (msg.type === 'INIT_LOAD' && msg.payload && !isInitialized.current) {
-      try {
-        editor.store.loadSnapshot(msg.payload)
-        setIsLoading(false)
-        isInitialized.current = true
-      } catch (e) {}
-    } else if (msg.type === 'DELTA' || msg.type === 'FULL_SYNC') {
-      if (msg.payload && !isSyncing.current) {
-        isSyncing.current = true
-        try {
-          editor.store.loadSnapshot(msg.payload)
-        } catch (e) {}
-        setTimeout(() => { isSyncing.current = false }, 100)
-      }
+
+    const applyDocRecords = (payload) => {
+      if (!payload?.store) return
+      const docRecords = Object.values(payload.store)
+        .filter(r => !SESSION_TYPES.has(r.typeName))
+      if (docRecords.length === 0) return
+      isSyncing.current = true
+      editor.store.mergeRemoteChanges(() => editor.store.put(docRecords))
+      setTimeout(() => { isSyncing.current = false }, 150)
+    }
+
+    if (msg.type === 'INIT_LOAD' && !isInitialized.current) {
+      applyDocRecords(msg.payload)
+      setIsLoading(false)
+      isInitialized.current = true
+    } else if (msg.type === 'FULL_SYNC' || msg.type === 'DELTA') {
+      if (!isSyncing.current) applyDocRecords(msg.payload)
     }
   }, [editor, setIsLoading])
 
   const { sendMessage } = useWebSocket({ onMessage: handleWsMessage })
 
-  // Debounced sync function
+  // FIX 4: Sync — chỉ gửi document scope (content), không gửi UI state
   const syncToServer = useDebounce(async (snapshot) => {
     setSaveStatus('saving')
     const sent = sendMessage({ type: 'FULL_SYNC', payload: snapshot })
-    if (!sent) {
-      await saveToServer(snapshot)
-    }
+    if (!sent) await saveToServer(snapshot)
     setSaveStatus('saved')
   }, 600)
 
-  // Listen to canvas changes → auto-save
+  // Lắng nghe document changes và sync
   useEffect(() => {
     if (!editor) return
-    const cleanup = editor.store.listen(
+    return editor.store.listen(
       () => {
         if (isSyncing.current) return
-        const snapshot = editor.store.getSnapshot()
+        // getSnapshot('document') — chỉ lấy shapes, pages, assets
+        // KHÔNG lấy camera, instance, tool state
+        const snapshot = editor.store.getSnapshot('document')
         setSaveStatus('saving')
         syncToServer(snapshot)
       },
       { scope: 'document', source: 'user' }
     )
-    return cleanup
   }, [editor, syncToServer, setSaveStatus])
 
   return null
 }
 
-// ── Main exported component ────────────────────────────────────
+// ── Main Component ──────────────────────────────────────────────
 export default function InfiniCanvas() {
   const initialSnapshot = useStore(s => s.initialSnapshot)
 
@@ -156,6 +209,12 @@ export default function InfiniCanvas() {
         persistenceKey="infininote-local"
         autoFocus
         inferDarkMode
+        components={{
+          // FIX 2: Inject nút Exit Focus Mode trực tiếp vào trong tldraw
+          // InFrontOfTheCanvas render trong tldraw's stacking context →
+          // không có z-index conflicts, useEditor() hoạt động chính xác
+          InFrontOfTheCanvas: FocusExitButton,
+        }}
       >
         <CanvasInner initialSnapshot={initialSnapshot} />
       </Tldraw>
