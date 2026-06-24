@@ -2,10 +2,10 @@
  * InfiniCanvas.jsx — Core canvas component
  * - Tích hợp tldraw v2
  * - Đồng bộ real-time qua WebSocket (debounced 600ms)
- * - Upload ảnh paste từ clipboard lên Cloudinary qua backend
+ * - Ảnh paste/drop được xử lý bởi tldraw native → upload backend → URL persistent
  * - Fallback REST save khi WS offline
  */
-import { useCallback, useRef, useEffect, useState } from 'react'
+import { useCallback, useRef, useEffect } from 'react'
 import { Tldraw, useEditor } from '@tldraw/tldraw'
 import '@tldraw/tldraw/tldraw.css'
 import { useWebSocket } from './useWebSocket'
@@ -22,6 +22,29 @@ function useDebounce(fn, delay) {
   }, [fn, delay])
 }
 
+// ── Upload ảnh lên backend → Cloudinary (nếu có) hoặc objectURL fallback ──────
+async function uploadImageAsset(file, addToast) {
+  try {
+    const formData = new FormData()
+    formData.append('file', file)
+    const res = await fetch(`${API_URL}/api/upload-image`, {
+      method: 'POST',
+      body: formData,
+    })
+    if (res.ok) {
+      const data = await res.json()
+      addToast({ type: 'success', text: '✅ Ảnh đã lưu lên Cloud!' })
+      return { url: data.url, width: data.width, height: data.height }
+    }
+  } catch (e) {
+    console.warn('[Image] Cloud upload failed, fallback to objectURL:', e)
+  }
+  // Fallback: objectURL (chỉ hoạt động trong phiên hiện tại trên thiết bị này)
+  const url = URL.createObjectURL(file)
+  addToast({ type: 'success', text: '📎 Ảnh đã thêm vào canvas!' })
+  return { url, width: 0, height: 0 }
+}
+
 // ── Inner component (has access to editor) ─────────────────────
 function CanvasInner({ initialSnapshot }) {
   const editor = useEditor()
@@ -31,11 +54,10 @@ function CanvasInner({ initialSnapshot }) {
   const isInitialized = useRef(false)
   const isSyncing = useRef(false)
 
-  // Load initial snapshot from server on mount
+  // Load initial snapshot từ server khi mount
   useEffect(() => {
     if (!editor || isInitialized.current) return
     isInitialized.current = true
-
     if (initialSnapshot) {
       try {
         editor.store.loadSnapshot(initialSnapshot)
@@ -46,7 +68,22 @@ function CanvasInner({ initialSnapshot }) {
     setIsLoading(false)
   }, [editor, initialSnapshot, setIsLoading])
 
-  // Save snapshot via REST (fallback)
+  // ── Đăng ký asset handler: tldraw gọi khi user paste/drop ảnh ──
+  useEffect(() => {
+    if (!editor) return
+    const handleAsset = async (asset, file) => {
+      if (!file) return asset
+      addToast({ type: 'success', text: '⬆️ Đang xử lý ảnh…' })
+      const result = await uploadImageAsset(file, addToast)
+      return { ...asset, props: { ...asset.props, src: result.url } }
+    }
+    editor.registerExternalAssetHandler('file', handleAsset)
+    return () => {
+      try { editor.registerExternalAssetHandler('file', null) } catch (_) {}
+    }
+  }, [editor, addToast])
+
+  // Save snapshot via REST (fallback khi WS offline)
   const saveToServer = useCallback(async (snapshot) => {
     try {
       await fetch(`${API_URL}/api/board`, {
@@ -86,13 +123,12 @@ function CanvasInner({ initialSnapshot }) {
     setSaveStatus('saving')
     const sent = sendMessage({ type: 'FULL_SYNC', payload: snapshot })
     if (!sent) {
-      // WS offline → fallback to REST
       await saveToServer(snapshot)
     }
     setSaveStatus('saved')
   }, 600)
 
-  // Listen to canvas changes
+  // Listen to canvas changes → auto-save
   useEffect(() => {
     if (!editor) return
     const cleanup = editor.store.listen(
@@ -107,58 +143,7 @@ function CanvasInner({ initialSnapshot }) {
     return cleanup
   }, [editor, syncToServer, setSaveStatus])
 
-  // Handle image paste from clipboard
-  useEffect(() => {
-    if (!editor) return
-
-    const handlePaste = async (e) => {
-      const items = Array.from(e.clipboardData?.items || [])
-      const imageItem = items.find(i => i.type.startsWith('image/'))
-      if (!imageItem) return
-
-      e.preventDefault()
-      const file = imageItem.getAsFile()
-      if (!file) return
-
-      addToast({ type: 'success', text: '⬆️ Đang upload ảnh…' })
-
-      try {
-        const formData = new FormData()
-        formData.append('file', file)
-
-        const res = await fetch(`${API_URL}/api/upload-image`, {
-          method: 'POST',
-          body: formData,
-        })
-
-        if (!res.ok) throw new Error(`Upload failed: ${res.status}`)
-        const data = await res.json()
-
-        // Insert image vào canvas tại vị trí center
-        const center = editor.getViewportPageCenter()
-        editor.createShape({
-          type: 'image',
-          x: center.x - data.width / 4,
-          y: center.y - data.height / 4,
-          props: {
-            url: data.url,
-            w: Math.min(data.width, 600),
-            h: Math.min(data.height, 600 * (data.height / data.width)),
-          },
-        })
-
-        addToast({ type: 'success', text: '✅ Ảnh đã thêm vào canvas!' })
-      } catch (err) {
-        console.error('[Image upload]', err)
-        addToast({ type: 'error', text: '❌ Upload ảnh thất bại' })
-      }
-    }
-
-    window.addEventListener('paste', handlePaste)
-    return () => window.removeEventListener('paste', handlePaste)
-  }, [editor, addToast])
-
-  return null // editor is provided by parent Tldraw component
+  return null
 }
 
 // ── Main exported component ────────────────────────────────────
