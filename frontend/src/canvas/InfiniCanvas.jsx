@@ -10,6 +10,7 @@
 import { useCallback, useRef, useEffect, useState } from 'react'
 import { Tldraw, useEditor } from '@tldraw/tldraw'
 import '@tldraw/tldraw/tldraw.css'
+import { AssetRecordType } from '@tldraw/tlschema'
 import { useWebSocket } from './useWebSocket'
 import useStore from '../store/useStore'
 
@@ -33,8 +34,18 @@ function useDebounce(fn, delay) {
   }, [fn, delay])
 }
 
-// ── Upload ảnh lên Cloudinary qua backend, fallback objectURL ──
-async function uploadImageAsset(file, addToast) {
+// Helper: lấy dimensions của ảnh từ URL
+function getImageSize(url) {
+  return new Promise((resolve) => {
+    const img = new Image()
+    img.onload = () => resolve({ w: img.naturalWidth, h: img.naturalHeight })
+    img.onerror = () => resolve({ w: 200, h: 200 })
+    img.src = url
+  })
+}
+
+// ── Upload ảnh lên Cloudinary qua backend ───────────────────────
+async function uploadFile(file, addToast) {
   try {
     const formData = new FormData()
     formData.append('file', file)
@@ -45,15 +56,15 @@ async function uploadImageAsset(file, addToast) {
     if (res.ok) {
       const data = await res.json()
       addToast({ type: 'success', text: '✅ Ảnh đã lưu lên Cloud!' })
-      return { url: data.url, width: data.width, height: data.height }
+      return { url: data.url, w: data.width || 0, h: data.height || 0 }
     }
   } catch (e) {
     console.warn('[Image] Cloud upload failed:', e)
   }
   // Fallback: objectURL (chỉ tồn tại trong tab hiện tại)
   const url = URL.createObjectURL(file)
-  addToast({ type: 'success', text: '📎 Ảnh đã thêm vào canvas!' })
-  return { url, width: 0, height: 0 }
+  addToast({ type: 'success', text: '❐️ Ảnh đã thêm vào canvas!' })
+  return { url, w: 0, h: 0 }
 }
 
 // ── FIX 2: Focus Mode Exit Button ─────────────────────────────
@@ -118,14 +129,39 @@ function CanvasInner({ initialSnapshot }) {
     setIsLoading(false)
   }, [editor, initialSnapshot, setIsLoading])
 
-  // Đăng ký asset handler: tldraw gọi khi user paste/drop ảnh
+  // Đăng ký asset handler: tldraw v2.4.x gọi với (info) không phải (asset, file)
+  // info = { type: 'file', file: File } → phải trả về TLAsset hoặc null
   useEffect(() => {
     if (!editor) return
-    const handleAsset = async (asset, file) => {
-      if (!file) return asset
-      addToast({ type: 'success', text: '⬆️ Đang xử lý ảnh…' })
-      const result = await uploadImageAsset(file, addToast)
-      return { ...asset, props: { ...asset.props, src: result.url } }
+    const handleAsset = async (info) => {
+      const file = info?.file
+      if (!file) return null
+      try {
+        addToast({ type: 'success', text: '⬆️ Đang xử lý ảnh…' })
+        const result = await uploadFile(file, addToast)
+        // Lấy dimensions nếu server không trả về
+        const size = (result.w && result.h)
+          ? { w: result.w, h: result.h }
+          : await getImageSize(result.url)
+        // Trả về TLAsset hợp lệ — id sẽ bị tldraw override
+        return {
+          id: AssetRecordType.createId(),
+          type: file.type.startsWith('video/') ? 'video' : 'image',
+          typeName: 'asset',
+          props: {
+            name: file.name,
+            src: result.url,
+            w: size.w,
+            h: size.h,
+            mimeType: file.type || 'image/png',
+            isAnimated: false,
+          },
+          meta: {},
+        }
+      } catch (e) {
+        console.error('[Canvas] Asset upload failed:', e)
+        return null  // tldraw sẽ xóa asset placeholder
+      }
     }
     editor.registerExternalAssetHandler('file', handleAsset)
     return () => {
