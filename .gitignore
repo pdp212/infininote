@@ -1,0 +1,42 @@
+# ════════════════════════════════════════
+# .gitignore — InfiniNote
+# ════════════════════════════════════════
+
+# ⚠️ BẢO MẬT: Không bao giờ commit file .env
+.env
+.env.*
+!.env.example        # Chỉ cho phép file example (không có mật khẩu)
+
+# File ghi chú cá nhân — có thể chứa credentials
+NOTE
+infininote
+
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+env/
+*.egg-info/
+
+# Node
+node_modules/
+dist/
+build/
+
+# macOS
+.DS_Store
+.AppleDouble
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+npm-debug.log*
