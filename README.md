@@ -34,7 +34,7 @@ Browser/PWA (Vercel)
 |---------|-----|
 | ⚙️ Backend (Render) | https://infininote.onrender.com |
 | 🔌 WebSocket | wss://infininote.onrender.com/ws |
-| 🎨 Frontend (Vercel) | *(Chưa deploy — xem Bước 4)* |
+| 🎨 Frontend (Vercel) | https://infininote-kappa.vercel.app |
 
 ---
 
