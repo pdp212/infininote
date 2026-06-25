@@ -10,12 +10,15 @@
   --board-accent: #7c5cff;
   --board-accent-hover: #6d4df5;
 
-  --board-radius-panel: 16px;
-  --board-radius-button: 12px;
+  --board-radius-panel: 18px;
+  --board-radius-button: 14px;
   --board-radius-pill: 999px;
 
-  --board-gap: 12px;
+  --board-gap-sm: 8px;
+  --board-gap-md: 12px;
   --board-edge: 16px;
+  
+  --board-pill-height: 36px;
 }
 
 /* ── Shell Layer ── */
@@ -48,23 +51,33 @@
   left: var(--board-edge);
   display: flex;
   flex-direction: column;
-  gap: var(--board-gap);
+  align-items: flex-start;
+  gap: var(--board-gap-md);
+  pointer-events: none;
 }
 
-.board-top-right-status {
+.board-right-side-cluster {
   position: absolute;
   top: var(--board-edge);
   right: var(--board-edge);
   display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--board-gap-md);
+  pointer-events: none;
+}
+
+.board-top-right-status {
+  display: flex;
   align-items: center;
-  gap: var(--board-gap);
+  justify-content: flex-end;
+  gap: var(--board-gap-md);
+  pointer-events: auto;
 }
 
 .board-right-inspector {
-  position: absolute;
-  top: 80px;
-  right: var(--board-edge);
-  width: 168px;
+  width: 176px;
+  /* Removed absolute top/right positioning since it's now in a flex column */
 }
 
 .board-zoom-dock {
@@ -73,7 +86,7 @@
   bottom: var(--board-edge);
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--board-gap-sm);
   padding: 8px 10px;
   border-radius: var(--board-radius-pill);
 }
@@ -90,31 +103,37 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  min-height: 48px;
-  padding: 8px 10px;
-  gap: 12px;
+  height: 56px;
+  padding: 0 10px;
+  gap: var(--board-gap-md);
   min-width: 360px;
 }
 
 .board-header-left, .board-header-right {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--board-gap-sm);
 }
 
 .board-left-tool-rail {
   width: 64px;
-  padding: 8px;
+  padding: 10px 8px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--board-gap-md); /* Gap between tool groups */
+}
+
+.board-tool-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--board-gap-sm); /* Gap between tools within a group */
 }
 
 .board-tool-btn {
-  width: 40px;
-  height: 40px;
+  width: 48px;
+  height: 48px;
   border: 0;
-  border-radius: 12px;
+  border-radius: var(--board-radius-button);
   background: transparent;
   color: var(--board-text-primary);
   display: inline-flex;
@@ -125,12 +144,13 @@
 }
 
 .board-tool-btn:hover {
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .board-tool-btn.is-active {
-  background: rgba(124, 92, 255, 0.18);
+  background: rgba(124, 92, 255, 0.22);
   box-shadow: inset 0 0 0 1px rgba(124, 92, 255, 0.35);
+  color: #fff;
 }
 
 .board-tool-btn:disabled {
@@ -145,30 +165,38 @@
 }
 
 .board-status-badge {
-  height: 36px;
+  height: var(--board-pill-height);
   padding: 0 14px;
   border-radius: var(--board-radius-pill);
   background: var(--board-shell-bg);
   border: 1px solid var(--board-shell-border);
+  box-shadow: var(--board-shell-shadow);
+  color: var(--board-text-primary);
+  backdrop-filter: blur(8px);
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--board-gap-sm);
   font-size: 13px;
+  font-weight: 500;
 }
 
 .board-back-btn {
-  height: 40px;
+  height: var(--board-pill-height);
   padding: 0 16px;
   border-radius: var(--board-radius-pill);
-  border: 0;
+  border: 1px solid var(--board-shell-border);
   background: var(--board-accent);
   color: white;
   font-weight: 600;
+  font-size: 13px;
+  box-shadow: var(--board-shell-shadow);
   cursor: pointer;
   transition: background 0.2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .board-back-btn:hover {
   background: var(--board-accent-hover);
 }
-

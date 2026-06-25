@@ -50,13 +50,18 @@ export default function LeftToolRail() {
 
   return (
     <div className="infininote-panel board-left-tool-rail">
-      {groups.nav.map(renderTool)}
-      <div className="board-tool-divider" />
-      {groups.draw.map(renderTool)}
-      <div className="board-tool-divider" />
-      {groups.content.map(renderTool)}
-      <div className="board-tool-divider" />
-      {groups.shape.map(renderTool)}
+      <div className="board-tool-group">
+        {groups.nav.map(renderTool)}
+      </div>
+      <div className="board-tool-group">
+        {groups.draw.map(renderTool)}
+      </div>
+      <div className="board-tool-group">
+        {groups.content.map(renderTool)}
+      </div>
+      <div className="board-tool-group">
+        {groups.shape.map(renderTool)}
+      </div>
     </div>
   )
 }
