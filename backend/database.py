@@ -37,19 +37,35 @@ async def get_board(board_id: str) -> dict | None:
     return doc
 
 
-async def upsert_board(board_id: str, snapshot: dict) -> None:
+async def upsert_board(board_id: str, snapshot: dict, base_revision: int = None) -> dict:
     """Lưu/cập nhật toàn bộ snapshot của canvas vào MongoDB."""
     collection = get_board_collection()
+    doc = await collection.find_one({"_id": board_id})
+    current_rev = doc.get("revision", 0) if doc else 0
+    
+    if base_revision is not None and base_revision < current_rev:
+        return {"status": "conflict", "doc": doc}
+        
+    new_rev = current_rev + 1
+    
     await collection.update_one(
         {"_id": board_id},
-        {"$set": {"snapshot": snapshot, "updated_at": __import__("datetime").datetime.utcnow().isoformat()}},
+        {"$set": {
+            "snapshot": snapshot, 
+            "updated_at": __import__("datetime").datetime.utcnow().isoformat(),
+            "revision": new_rev
+        }},
         upsert=True,
     )
+    return {"status": "success", "revision": new_rev}
 
 
-async def apply_delta(board_id: str, delta: dict) -> None:
+async def apply_delta(board_id: str, delta: dict) -> dict:
     """Áp dụng bản vá (DELTA) vào snapshot của canvas hiện tại (CRDT-lite)."""
     collection = get_board_collection()
+    doc = await collection.find_one({"_id": board_id})
+    current_rev = doc.get("revision", 0) if doc else 0
+    new_rev = current_rev + 1
     
     set_ops = {}
     unset_ops = {}
@@ -66,7 +82,7 @@ async def apply_delta(board_id: str, delta: dict) -> None:
     for rec_id in delta.get("removed", []):
         unset_ops[f"snapshot.store.{rec_id}"] = ""
         
-    update_query = { "$set": {"updated_at": __import__("datetime").datetime.utcnow().isoformat()} }
+    update_query = { "$set": {"updated_at": __import__("datetime").datetime.utcnow().isoformat(), "revision": new_rev} }
     if set_ops:
         update_query["$set"].update(set_ops)
     if unset_ops:
@@ -74,3 +90,4 @@ async def apply_delta(board_id: str, delta: dict) -> None:
         
     if set_ops or unset_ops:
         await collection.update_one({"_id": board_id}, update_query, upsert=True)
+    return {"status": "success", "revision": new_rev}

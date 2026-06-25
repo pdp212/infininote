@@ -113,8 +113,8 @@ async def load_board(board_id: str):
     """Trả về snapshot tldraw hiện tại từ MongoDB."""
     doc = await get_board(board_id)
     if not doc:
-        return {"snapshot": None}
-    return {"snapshot": doc.get("snapshot")}
+        return {"snapshot": None, "revision": 0, "updatedAt": None}
+    return {"snapshot": doc.get("snapshot"), "revision": doc.get("revision", 0), "updatedAt": doc.get("updated_at")}
 
 @app.get("/api/board")
 async def load_board_legacy():
@@ -124,8 +124,17 @@ async def load_board_legacy():
 @app.post("/api/board/{board_id}")
 async def save_board(board_id: str, payload: SnapshotPayload):
     """Lưu toàn bộ tldraw snapshot vào MongoDB (fallback khi WS offline)."""
-    await upsert_board(board_id, payload.snapshot)
-    return {"status": "saved"}
+    res = await upsert_board(board_id, payload.snapshot, payload.baseRevision)
+    if res.get("status") == "conflict":
+        raise HTTPException(
+            status_code=409, 
+            detail={
+                "message": "Conflict", 
+                "revision": res["doc"].get("revision", 0), 
+                "snapshot": res["doc"].get("snapshot")
+            }
+        )
+    return {"status": "saved", "revision": res["revision"]}
 
 @app.post("/api/board")
 async def save_board_legacy(payload: SnapshotPayload):
@@ -173,6 +182,7 @@ async def websocket_endpoint(websocket: WebSocket, board_id: str):
     init_msg = json.dumps({
         "type": "INIT_LOAD",
         "payload": doc.get("snapshot") if doc else None,
+        "revision": doc.get("revision", 0) if doc else 0,
     })
     await websocket.send_text(init_msg)
 
@@ -195,15 +205,29 @@ async def websocket_endpoint(websocket: WebSocket, board_id: str):
                 changes = msg.get("changes")
                 if changes:
                     # Apply changes to MongoDB (CRDT-lite)
-                    await apply_delta(board_id, changes)
+                    res = await apply_delta(board_id, changes)
                     # Broadcast đến tất cả client khác
-                    await manager.broadcast(raw, board_id, exclude=websocket)
+                    msg["revision"] = res["revision"]
+                    out_raw = json.dumps(msg)
+                    await manager.broadcast(out_raw, board_id, exclude=websocket)
+                    await websocket.send_text(json.dumps({"type": "ACK_REVISION", "revision": res["revision"]}))
                     
             elif msg_type == "FULL_SYNC":
                 snapshot = msg.get("payload")
+                base_revision = msg.get("baseRevision")
                 if snapshot:
-                    await upsert_board(board_id, snapshot)
-                    await manager.broadcast(raw, board_id, exclude=websocket)
+                    res = await upsert_board(board_id, snapshot, base_revision)
+                    if res.get("status") == "conflict":
+                        doc = res["doc"]
+                        await websocket.send_text(json.dumps({
+                            "type": "CONFLICT",
+                            "payload": doc.get("snapshot"),
+                            "revision": doc.get("revision", 0)
+                        }))
+                    else:
+                        out_raw = json.dumps({"type": "FULL_SYNC", "payload": snapshot, "revision": res["revision"]})
+                        await manager.broadcast(out_raw, board_id, exclude=websocket)
+                        await websocket.send_text(json.dumps({"type": "ACK_REVISION", "revision": res["revision"]}))
 
     except WebSocketDisconnect:
         manager.disconnect(websocket, board_id)

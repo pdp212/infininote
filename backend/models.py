@@ -8,6 +8,7 @@ from typing import Any
 class SnapshotPayload(BaseModel):
     """Payload gửi từ frontend để lưu toàn bộ tldraw snapshot."""
     snapshot: dict[str, Any]
+    baseRevision: int | None = None
 
 
 class ImageUploadResponse(BaseModel):

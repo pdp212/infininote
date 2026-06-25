@@ -101,54 +101,6 @@ export default function RightInspectorPanel() {
         </InspectorSection>
       )}
 
-      {showFill && (
-        <InspectorSection title="Fill" isMixed={currentFill === 'mixed'}>
-          <div className="inspector-segmented-control">
-            {FILL_OPTIONS.map(f => (
-              <button
-                key={f.id}
-                className={`inspector-segment ${currentFill === f.id ? 'is-active' : ''}`}
-                onClick={() => setFill(f.id)}
-              >
-                {f.label}
-              </button>
-            ))}
-          </div>
-        </InspectorSection>
-      )}
-
-      {showDash && (
-        <InspectorSection title="Stroke" isMixed={currentDash === 'mixed'}>
-          <div className="inspector-segmented-control">
-            {DASH_OPTIONS.map(d => (
-              <button
-                key={d.id}
-                className={`inspector-segment ${currentDash === d.id ? 'is-active' : ''}`}
-                onClick={() => setDash(d.id)}
-              >
-                {d.label}
-              </button>
-            ))}
-          </div>
-        </InspectorSection>
-      )}
-
-      {showSize && (
-        <InspectorSection title="Size" isMixed={currentSize === 'mixed'}>
-          <div className="inspector-segmented-control">
-            {SIZE_OPTIONS.map(s => (
-              <button
-                key={s.id}
-                className={`inspector-segment ${currentSize === s.id ? 'is-active' : ''}`}
-                onClick={() => setSize(s.id)}
-              >
-                {s.label}
-              </button>
-            ))}
-          </div>
-        </InspectorSection>
-      )}
-
       {showFont && (
         <InspectorSection title="Font" isMixed={currentFont === 'mixed'}>
           <div className="inspector-segmented-control">
@@ -184,6 +136,22 @@ export default function RightInspectorPanel() {
         </InspectorSection>
       )}
 
+      {showSize && (
+        <InspectorSection title="Size" isMixed={currentSize === 'mixed'}>
+          <div className="inspector-segmented-control">
+            {SIZE_OPTIONS.map(s => (
+              <button
+                key={s.id}
+                className={`inspector-segment ${currentSize === s.id ? 'is-active' : ''}`}
+                onClick={() => setSize(s.id)}
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
+        </InspectorSection>
+      )}
+
       {showOpacity && (
         <InspectorSection title="Opacity" isMixed={currentOpacity === 'mixed'}>
           <div className="inspector-segmented-control">
@@ -194,6 +162,38 @@ export default function RightInspectorPanel() {
                 onClick={() => setOpacity(o.id)}
               >
                 {o.label}
+              </button>
+            ))}
+          </div>
+        </InspectorSection>
+      )}
+
+      {showFill && (
+        <InspectorSection title="Fill" isMixed={currentFill === 'mixed'}>
+          <div className="inspector-segmented-control">
+            {FILL_OPTIONS.map(f => (
+              <button
+                key={f.id}
+                className={`inspector-segment ${currentFill === f.id ? 'is-active' : ''}`}
+                onClick={() => setFill(f.id)}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+        </InspectorSection>
+      )}
+
+      {showDash && (
+        <InspectorSection title="Stroke" isMixed={currentDash === 'mixed'}>
+          <div className="inspector-segmented-control">
+            {DASH_OPTIONS.map(d => (
+              <button
+                key={d.id}
+                className={`inspector-segment ${currentDash === d.id ? 'is-active' : ''}`}
+                onClick={() => setDash(d.id)}
+              >
+                {d.label}
               </button>
             ))}
           </div>

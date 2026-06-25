@@ -112,36 +112,15 @@ function AppOverlay() {
   )
 }
 
+import { useBoardSync } from '../features/boards/hooks/useBoardSync'
+
 // ── Canvas Inner (có editor context) ───────────────────────────
-function CanvasInner({ initialSnapshot, boardId }) {
+function CanvasInner({ boardId }) {
   const editor = useEditor()
-  const setSaveStatus = useStore(s => s.setSaveStatus)
-  const setIsLoading = useStore(s => s.setIsLoading)
   const addToast = useStore(s => s.addToast)
-  const theme = useStore(s => s.theme)
-  const isInitialized = useRef(false)
-  const isSyncing = useRef(false)
 
-  // Removed forced theme sync to allow Tldraw to manage its own theme via Preferences Menu
-
-  // Load snapshot từ server — chỉ áp document records, giữ nguyên UI state local
-  useEffect(() => {
-    if (!editor || isInitialized.current) return
-    isInitialized.current = true
-    if (initialSnapshot?.store) {
-      try {
-        const docRecords = Object.values(initialSnapshot.store)
-          .filter(r => !SESSION_TYPES.has(r.typeName))
-        if (docRecords.length > 0) {
-          // mergeRemoteChanges: đánh dấu là remote change → không re-broadcast
-          editor.store.mergeRemoteChanges(() => editor.store.put(docRecords))
-        }
-      } catch (e) {
-        console.warn('[Canvas] Could not load snapshot:', e)
-      }
-    }
-    setIsLoading(false)
-  }, [editor, initialSnapshot, setIsLoading])
+  // Kết nối hook đồng bộ
+  useBoardSync(editor, boardId)
 
   // Đăng ký asset handler: tldraw v2.4.x gọi với (info) không phải (asset, file)
   // info = { type: 'file', file: File } → phải trả về TLAsset hoặc null
@@ -183,104 +162,6 @@ function CanvasInner({ initialSnapshot, boardId }) {
     }
   }, [editor, addToast])
 
-  // REST fallback khi WebSocket offline
-  const saveToServer = useCallback(async (snapshot) => {
-    if (!boardId) return
-    try {
-      const baseUrl = API_URL.replace(/\/$/, '')
-      await fetch(`${baseUrl}/api/board/${boardId}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ snapshot }),
-      })
-    } catch (e) {
-      console.warn('[Canvas] REST save failed:', e)
-    }
-  }, [boardId])
-
-  // FIX 4: WS handler — chỉ apply document records từ remote
-  // Không ghi đè camera/tool/color của thiết bị hiện tại
-  const handleWsMessage = useCallback((msg) => {
-    if (!editor || !msg) return
-
-    const applyDocRecords = (payload) => {
-      if (!payload?.store) return
-      const docRecords = Object.values(payload.store)
-        .filter(r => !SESSION_TYPES.has(r.typeName))
-      if (docRecords.length === 0) return
-      isSyncing.current = true
-      editor.store.mergeRemoteChanges(() => editor.store.put(docRecords))
-      setTimeout(() => { isSyncing.current = false }, 150)
-    }
-
-    if (msg.type === 'INIT_LOAD' && !isInitialized.current) {
-      applyDocRecords(msg.payload)
-      setIsLoading(false)
-      isInitialized.current = true
-    } else if (msg.type === 'FULL_SYNC') {
-      if (!isSyncing.current) applyDocRecords(msg.payload)
-    } else if (msg.type === 'DELTA') {
-      if (isSyncing.current || !msg.changes) return
-      isSyncing.current = true
-      editor.store.mergeRemoteChanges(() => {
-        const toPut = [
-          ...Object.values(msg.changes.added || {}),
-          ...Object.values(msg.changes.updated || {})
-        ]
-        if (toPut.length > 0) editor.store.put(toPut)
-        
-        const toRemove = msg.changes.removed || []
-        if (toRemove.length > 0) editor.store.remove(toRemove)
-      })
-      setTimeout(() => { isSyncing.current = false }, 50)
-    }
-  }, [editor, setIsLoading])
-
-  const { sendMessage } = useWebSocket({ onMessage: handleWsMessage, boardId })
-
-  // FIX 4: Sync — chỉ gửi document scope (content), không gửi UI state
-  const syncToServer = useDebounce(async (snapshot) => {
-    setSaveStatus('saving')
-    const sent = sendMessage({ type: 'FULL_SYNC', payload: snapshot })
-    if (!sent) await saveToServer(snapshot)
-    setSaveStatus('saved')
-  }, 600)
-
-  // Lắng nghe document changes và sync
-  useEffect(() => {
-    if (!editor) return
-    return editor.store.listen(
-      (entry) => {
-        if (isSyncing.current || entry.source !== 'user') return
-
-        const changes = entry.changes
-        const filtered = { added: {}, updated: {}, removed: [] }
-        
-        for (const [id, rec] of Object.entries(changes.added)) {
-          if (!SESSION_TYPES.has(rec.typeName)) filtered.added[id] = rec
-        }
-        for (const [id, recs] of Object.entries(changes.updated)) {
-          if (!SESSION_TYPES.has(recs[1].typeName)) filtered.updated[id] = recs[1]
-        }
-        for (const [id, rec] of Object.entries(changes.removed)) {
-          if (!SESSION_TYPES.has(rec.typeName)) filtered.removed.push(id)
-        }
-
-        if (Object.keys(filtered.added).length || Object.keys(filtered.updated).length || filtered.removed.length) {
-          setSaveStatus('saving')
-          const sent = sendMessage({ type: 'DELTA', changes: filtered })
-          if (!sent) {
-            // Fallback REST nếu WS chết
-            syncToServer(editor.store.getSnapshot('document'))
-          } else {
-            setSaveStatus('saved')
-          }
-        }
-      },
-      { scope: 'document', source: 'user' }
-    )
-  }, [editor, sendMessage, syncToServer, setSaveStatus])
-
   return null
 }
 
@@ -293,7 +174,7 @@ export default function InfiniCanvas({ boardId }) {
   return (
     <div className="canvas-wrapper">
       <Tldraw
-        persistenceKey="infininote-local"
+        persistenceKey={`infininote-board-${boardId}`}
         autoFocus
         inferDarkMode
         components={{
