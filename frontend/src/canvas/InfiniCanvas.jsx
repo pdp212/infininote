@@ -181,7 +181,8 @@ function CanvasInner({ initialSnapshot, boardId }) {
   const saveToServer = useCallback(async (snapshot) => {
     if (!boardId) return
     try {
-      await fetch(`${API_URL}/api/board/${boardId}`, {
+      const baseUrl = API_URL.replace(/\/$/, '')
+      await fetch(`${baseUrl}/api/board/${boardId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ snapshot }),
