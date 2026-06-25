@@ -116,12 +116,21 @@ async def load_board(board_id: str):
         return {"snapshot": None}
     return {"snapshot": doc.get("snapshot")}
 
+@app.get("/api/board")
+async def load_board_legacy():
+    """Fallback cho các client PWA cũ chưa cập nhật URL."""
+    return await load_board(BOARD_ID)
 
 @app.post("/api/board/{board_id}")
 async def save_board(board_id: str, payload: SnapshotPayload):
     """Lưu toàn bộ tldraw snapshot vào MongoDB (fallback khi WS offline)."""
     await upsert_board(board_id, payload.snapshot)
     return {"status": "saved"}
+
+@app.post("/api/board")
+async def save_board_legacy(payload: SnapshotPayload):
+    """Fallback cho các client PWA cũ chưa cập nhật URL."""
+    return await save_board(BOARD_ID, payload)
 
 
 @app.post("/api/upload-image", response_model=ImageUploadResponse)
@@ -201,3 +210,8 @@ async def websocket_endpoint(websocket: WebSocket, board_id: str):
     except Exception as e:
         logger.error(f"WS error: {e}")
         manager.disconnect(websocket, board_id)
+
+@app.websocket("/ws")
+async def websocket_endpoint_legacy(websocket: WebSocket):
+    """Fallback cho các client PWA cũ chưa cập nhật URL."""
+    await websocket_endpoint(websocket, BOARD_ID)
