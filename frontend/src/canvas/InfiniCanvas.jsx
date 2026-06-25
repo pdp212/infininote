@@ -114,7 +114,7 @@ function CanvasInner({ initialSnapshot, boardId }) {
   // Sync theme
   useEffect(() => {
     if (editor) {
-      editor.user.updateUserPreferences({ isDarkMode: theme === 'dark' })
+      editor.user.updateUserPreferences({ colorScheme: theme === 'dark' ? 'dark' : 'light' })
     }
   }, [editor, theme])
 
