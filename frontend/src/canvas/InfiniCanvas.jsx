@@ -10,8 +10,8 @@
 import { useCallback, useRef, useEffect, useState } from 'react'
 import { Tldraw, useEditor, DefaultSharePanel } from '@tldraw/tldraw'
 import { useNavigate } from 'react-router-dom'
-import { StatusBadge, SaveIndicator } from '../components/Header'
 import '@tldraw/tldraw/tldraw.css'
+import BoardScreen from './ui/BoardScreen'
 import { AssetRecordType } from '@tldraw/tlschema'
 import { useWebSocket } from './useWebSocket'
 import useStore from '../store/useStore'
@@ -100,6 +100,15 @@ function FocusExitButton() {
         Thoát Focus Mode
       </button>
     </div>
+  )
+}
+
+function AppOverlay() {
+  return (
+    <>
+      <FocusExitButton />
+      <BoardScreen />
+    </>
   )
 }
 
@@ -275,24 +284,6 @@ function CanvasInner({ initialSnapshot, boardId }) {
   return null
 }
 
-// ── Custom Share Panel ──────────────────────────────────────────
-function CustomSharePanel() {
-  const navigate = useNavigate()
-  return (
-    <div style={{ pointerEvents: 'all', display: 'flex', alignItems: 'center', gap: '12px', paddingRight: '8px' }}>
-      <SaveIndicator />
-      <StatusBadge />
-      <button 
-        className="back-to-dashboard-btn"
-        onClick={() => navigate('/')} 
-      >
-        Quay lại
-      </button>
-      <DefaultSharePanel />
-    </div>
-  )
-}
-
 // ── Main Component ──────────────────────────────────────────────
 export default function InfiniCanvas({ boardId }) {
   const initialSnapshot = useStore(s => s.initialSnapshot)
@@ -306,11 +297,16 @@ export default function InfiniCanvas({ boardId }) {
         autoFocus
         inferDarkMode
         components={{
-          // FIX 2: Inject nút Exit Focus Mode trực tiếp vào trong tldraw
-          // InFrontOfTheCanvas render trong tldraw's stacking context →
-          // không có z-index conflicts, useEditor() hoạt động chính xác
-          InFrontOfTheCanvas: FocusExitButton,
-          SharePanel: CustomSharePanel,
+          Toolbar: null,
+          StylePanel: null,
+          MainMenu: null,
+          PageMenu: null,
+          NavigationPanel: null,
+          ZoomMenu: null,
+          SharePanel: null,
+          KeyboardShortcutsDialog: null,
+          QuickActions: null,
+          InFrontOfTheCanvas: AppOverlay,
         }}
       >
         <CanvasInner initialSnapshot={initialSnapshot} boardId={boardId} />

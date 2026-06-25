@@ -1,0 +1,109 @@
+/* Board Screen Overlay Layout */
+.board-screen-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none; /* Let clicks pass through to canvas */
+  z-index: 300; /* Above tldraw canvas */
+  display: flex;
+}
+
+/* Base style for floating panels */
+.floating-panel {
+  position: absolute;
+  pointer-events: auto; /* Re-enable clicks on panels */
+}
+
+/* The actual dark shell box */
+.panel-shell {
+  background: #1f1f23;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  padding: 8px;
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.panel-shell.flex-row {
+  flex-direction: row;
+  align-items: center;
+}
+
+.divider {
+  width: 1px;
+  height: 24px;
+  background: rgba(255, 255, 255, 0.1);
+  margin: 0 4px;
+}
+
+/* ── Specific Region Placements ── */
+
+.top-left-board-bar {
+  top: 16px;
+  left: 16px;
+}
+
+.left-toolbar {
+  top: 80px;
+  left: 16px;
+}
+
+.status-cluster {
+  top: 16px;
+  right: 16px;
+}
+
+.inspector-panel {
+  top: 72px;
+  right: 16px;
+}
+
+.zoom-dock {
+  bottom: 16px;
+  left: 16px;
+}
+
+/* ── Tldraw CSS Overrides ── */
+
+/* Force vertical toolbar */
+.vertical-tldraw-toolbar .tlui-toolbar {
+  flex-direction: column !important;
+}
+
+.vertical-tldraw-toolbar .tlui-toolbar__tools {
+  flex-direction: column !important;
+}
+
+/* Override default tldraw UI colors within our panels to fit the shell */
+.panel-shell {
+  --color-panel: transparent;
+  --color-background: transparent;
+}
+
+/* Fix StatusCluster elements */
+.status-cluster .back-to-dashboard-btn {
+  background: #7C5CFF;
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.status-cluster .back-to-dashboard-btn:hover {
+  background: #6a4deb;
+}
+
+.status-cluster .status-badge,
+.status-cluster .save-indicator {
+  padding: 4px 8px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  font-size: 13px;
+  white-space: nowrap;
+}
