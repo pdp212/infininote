@@ -283,17 +283,8 @@ function CustomSharePanel() {
       <SaveIndicator />
       <StatusBadge />
       <button 
+        className="back-to-dashboard-btn"
         onClick={() => navigate('/')} 
-        style={{ 
-          background: 'var(--brand-primary)', 
-          color: 'white', 
-          border: 'none', 
-          padding: '6px 12px', 
-          borderRadius: '8px', 
-          cursor: 'pointer', 
-          fontWeight: 500,
-          fontSize: '13px'
-        }}
       >
         Quay lại
       </button>

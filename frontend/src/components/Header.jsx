@@ -8,9 +8,9 @@ import useStore from '../store/useStore'
 export function StatusBadge() {
   const status = useStore(s => s.connectionStatus)
   const labels = {
-    connected: '[ KẾT NỐI ]',
-    connecting: '[ ĐANG KẾT NỐI ]',
-    offline: '[ NGOẠI TUYẾN ]',
+    connected: '● Đã kết nối',
+    connecting: '○ Đang kết nối',
+    offline: '● Ngoại tuyến',
   }
   return (
     <div className="status-badge" aria-label={`Trạng thái: ${labels[status]}`}>
@@ -22,7 +22,7 @@ export function StatusBadge() {
 // ── Save indicator ──────────────────────────────────────────────
 export function SaveIndicator() {
   const saveStatus = useStore(s => s.saveStatus)
-  const labels = { saving: '[ ĐANG LƯU ]', saved: '[ ĐÃ LƯU ]', error: '[ LỖI LƯU ]' }
+  const labels = { saving: '○ Đang lưu...', saved: '✓ Đã lưu', error: '✕ Lỗi lưu' }
   return (
     <div className="save-indicator">
       <span>{labels[saveStatus]}</span>

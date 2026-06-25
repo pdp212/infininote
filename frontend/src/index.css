@@ -167,24 +167,44 @@ html, body, #root {
 }
 
 /* Connection status badge & Save indicator */
+/* Connection status badge & Save indicator */
 .status-badge, .save-indicator {
   display: flex;
   align-items: center;
   gap: 6px;
   padding: 6px 12px;
-  border-radius: var(--radius-sm);
+  border-radius: 999px;
   font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 1px;
-  color: var(--bg-base);
-  background: var(--text-primary);
+  font-weight: 500;
+  color: #fff;
+  background: rgba(23, 24, 28, 0.85);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow: var(--shadow-sm);
   transition: var(--transition-fast);
   cursor: default;
 }
 
 .status-badge:hover, .save-indicator:hover {
-  background: var(--text-muted);
+  background: rgba(23, 24, 28, 1);
+}
+
+.back-to-dashboard-btn {
+  background: #7C5CFF;
+  color: #fff;
+  border: none;
+  padding: 6px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 12px;
+  transition: all 150ms ease;
+  box-shadow: 0 4px 12px rgba(124, 92, 255, 0.3);
+}
+
+.back-to-dashboard-btn:hover {
+  background: #6a4ce5;
+  transform: translateY(-1px);
 }
 
 /* ── Canvas wrapper ──────────────────────────────────────────── */
@@ -455,109 +475,38 @@ html, body, #root {
 /* ── tldraw overrides ────────────────────────────────────────── */
 
 .tl-background {
-  background: var(--bg-base) !important;
+  background: #ffffff !important;
 }
 
 /* Hide tldraw default share button area since we don't use it */
 .tlui-share-zone { display: none !important; }
 
-/* FIX 5: Move all UI to the App Header */
-.canvas-wrapper .tlui-layout__top__left {
-  position: fixed !important;
-  top: 6px !important;
-  left: 180px !important;
-  z-index: 1001 !important;
-  padding: 0 !important;
+/* Floating Dark UI Overrides */
+.tl-theme__dark, .tl-theme__light {
+  --color-panel: #17181C !important;
+  --color-background: #FFFFFF !important;
+  --color-selected: #ffffff !important;
+  --color-selected-contrast: #000000 !important;
+  --radius-panel: 16px !important;
+  --color-divider: rgba(255, 255, 255, 0.08) !important;
+  --color-text-0: #f5f5f7 !important;
+  --color-text-1: #b9bcc6 !important;
+  --color-muted-1: #1e2026 !important;
 }
 
-.canvas-wrapper .tlui-layout__top__right {
-  position: fixed !important;
-  top: 6px !important;
-  right: 220px !important;
-  z-index: 1001 !important;
-  padding: 0 !important;
+.tlui-style-panel {
+  border-radius: 16px !important;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.22) !important;
 }
 
-.canvas-wrapper .tlui-layout__bottom__main {
-  position: fixed !important;
-  top: 6px !important;
-  bottom: auto !important;
-  left: 50% !important;
-  transform: translateX(-50%) !important;
-  z-index: 1001 !important;
-  padding: 0 !important;
+/* Float margins */
+.tlui-layout__left {
+  margin-left: 12px !important;
+  margin-top: 50px !important;
 }
-
-/* Hide minimap, help, and zoom menus to save space */
-.canvas-wrapper .tlui-minimap,
-.canvas-wrapper .tlui-help-menu,
-.canvas-wrapper .tlui-zoom-menu {
-  display: none !important;
-}
-
-/* FIX 1: Custom color palette — override tldraw theme CSS variables
-   Áp cho cả light và dark theme để đảm bảo màu hiển thị đúng.
-   Mapping từ bảng màu 28 màu của người dùng → 13 slot của tldraw. */
-
-/* Light theme */
-.tl-theme__light {
-  --color-black:        #000000;  /* Row 1 - pure black */
-  --color-grey:         #888888;  /* Row 1 - medium grey */
-  --color-red:          #e61515;  /* Row 2 - vivid red */
-  --color-light-red:    #f555b4;  /* Row 2 - hot pink / magenta */
-  --color-light-violet: #e888e8;  /* Row 2 - orchid / lavender */
-  --color-violet:       #7c30f5;  /* Row 2 - purple */
-  --color-blue:         #1840d4;  /* Row 3 - dark blue */
-  --color-light-blue:   #0ab4f8;  /* Row 3 - sky blue */
-  --color-green:        #28b040;  /* Row 4 - green */
-  --color-light-green:  #a0e030;  /* Row 4 - chartreuse / lime */
-  --color-yellow:       #f5d400;  /* Row 4 - yellow */
-  --color-orange:       #f57830;  /* Row 4 - orange */
-  --color-white:        #ffffff;  /* Row 1 - white */
-}
-
-/* Dark theme — brighter variants for visibility on dark canvas */
-.tl-theme__dark {
-  --color-black:        #e8e8e8;  /* Inverted: light color on dark BG */
-  --color-grey:         #aaaaaa;
-  --color-red:          #f83030;
-  --color-light-red:    #f870c8;  /* brighter hot pink */
-  --color-light-violet: #f0a0f0;  /* brighter orchid */
-  --color-violet:       #a060f8;  /* brighter purple */
-  --color-blue:         #4878f8;
-  --color-light-blue:   #40c8f8;
-  --color-green:        #40c858;
-  --color-light-green:  #b8e850;
-  --color-yellow:       #f8d800;
-  --color-orange:       #f89030;
-  --color-white:        #ffffff;
-}
-
-/* Semi-transparent fill variants (dùng cho fill mode) */
-.tl-theme__light {
-  --color-red-semi:         rgba(230, 21, 21, 0.18);
-  --color-light-red-semi:   rgba(245, 85, 180, 0.18);
-  --color-light-violet-semi:rgba(232, 136, 232, 0.18);
-  --color-violet-semi:      rgba(124, 48, 245, 0.18);
-  --color-blue-semi:        rgba(24, 64, 212, 0.18);
-  --color-light-blue-semi:  rgba(10, 180, 248, 0.18);
-  --color-green-semi:       rgba(40, 176, 64, 0.18);
-  --color-light-green-semi: rgba(160, 224, 48, 0.18);
-  --color-yellow-semi:      rgba(245, 212, 0, 0.18);
-  --color-orange-semi:      rgba(245, 120, 48, 0.18);
-}
-
-.tl-theme__dark {
-  --color-red-semi:         rgba(248, 48, 48, 0.22);
-  --color-light-red-semi:   rgba(248, 112, 200, 0.22);
-  --color-light-violet-semi:rgba(240, 160, 240, 0.22);
-  --color-violet-semi:      rgba(160, 96, 248, 0.22);
-  --color-blue-semi:        rgba(72, 120, 248, 0.22);
-  --color-light-blue-semi:  rgba(64, 200, 248, 0.22);
-  --color-green-semi:       rgba(64, 200, 88, 0.22);
-  --color-light-green-semi: rgba(184, 232, 80, 0.22);
-  --color-yellow-semi:      rgba(248, 216, 0, 0.22);
-  --color-orange-semi:      rgba(248, 144, 48, 0.22);
+.tlui-layout__top__left {
+  margin-top: 12px !important;
+  margin-left: 12px !important;
 }
 
 /* ── FIX 2: Focus Mode Exit Button ───────────────────────────── */
