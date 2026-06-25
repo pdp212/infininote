@@ -5,6 +5,13 @@ import Header from '../components/Header'
 export default function Dashboard() {
   const navigate = useNavigate()
   const [boards, setBoards] = useState([])
+  const [openMenuId, setOpenMenuId] = useState(null)
+
+  useEffect(() => {
+    const handleClickOutside = () => setOpenMenuId(null)
+    window.addEventListener('click', handleClickOutside)
+    return () => window.removeEventListener('click', handleClickOutside)
+  }, [])
 
   useEffect(() => {
     const saved = localStorage.getItem('infininote-recent-boards')
@@ -38,6 +45,32 @@ export default function Dashboard() {
     navigate(`/board/${board.id}`)
   }
 
+  const toggleMenu = (e, id) => {
+    e.stopPropagation()
+    setOpenMenuId(prev => prev === id ? null : id)
+  }
+
+  const renameBoard = (e, board) => {
+    e.stopPropagation()
+    setOpenMenuId(null)
+    const newTitle = window.prompt('Nhập tên mới cho bảng:', board.title)
+    if (newTitle && newTitle.trim()) {
+      const updated = boards.map(b => b.id === board.id ? { ...b, title: newTitle.trim() } : b)
+      setBoards(updated)
+      localStorage.setItem('infininote-recent-boards', JSON.stringify(updated))
+    }
+  }
+
+  const deleteBoard = (e, board) => {
+    e.stopPropagation()
+    setOpenMenuId(null)
+    if (window.confirm(`Bạn có chắc chắn muốn xóa bảng "${board.title}"?`)) {
+      const updated = boards.filter(b => b.id !== board.id)
+      setBoards(updated)
+      localStorage.setItem('infininote-recent-boards', JSON.stringify(updated))
+    }
+  }
+
   return (
     <>
       <Header />
@@ -68,12 +101,18 @@ export default function Dashboard() {
                   <span style={{ color: '#10B981' }}>●</span> Đã đồng bộ
                 </div>
               </div>
-              <div className="board-card-actions" onClick={(e) => { e.stopPropagation(); /* TODO: Open context menu */ }}>
+              <div className="board-card-actions" onClick={(e) => toggleMenu(e, board.id)}>
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#999' }}>
                   <circle cx="12" cy="12" r="1"></circle>
                   <circle cx="19" cy="12" r="1"></circle>
                   <circle cx="5" cy="12" r="1"></circle>
                 </svg>
+                {openMenuId === board.id && (
+                  <div className="card-context-menu">
+                    <button onClick={(e) => renameBoard(e, board)}>Đổi tên</button>
+                    <button onClick={(e) => deleteBoard(e, board)} className="danger">Xóa bảng</button>
+                  </div>
+                )}
               </div>
             </div>
           ))

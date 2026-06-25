@@ -693,6 +693,7 @@ html, body, #root {
 }
 
 .board-card-actions {
+  position: relative;
   padding: 8px;
   border-radius: 50%;
   display: flex;
@@ -703,6 +704,46 @@ html, body, #root {
 
 .board-card-actions:hover {
   background: rgba(0,0,0,0.05);
+}
+
+.card-context-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 4px;
+  background: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+  display: flex;
+  flex-direction: column;
+  min-width: 140px;
+  overflow: hidden;
+  z-index: 10;
+  border: 1px solid #eee;
+}
+
+.card-context-menu button {
+  background: none;
+  border: none;
+  padding: 12px 16px;
+  text-align: left;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  color: #333;
+  transition: background 0.2s;
+}
+
+.card-context-menu button:hover {
+  background: #f5f5f7;
+}
+
+.card-context-menu button.danger {
+  color: #ef4444;
+}
+
+.card-context-menu button.danger:hover {
+  background: #fef2f2;
 }
 
 .empty-state {
