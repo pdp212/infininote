@@ -3,10 +3,10 @@ import { useBoardStatus } from '../hooks/useBoardStatus'
 import { useBoardActions } from '../hooks/useBoardActions'
 
 function SaveBadge({ status }) {
-  const labels = { saving: '○ Đang lưu...', saved: '✓ Đã lưu', error: '✕ Lỗi lưu' }
+  const labels = { saving: '○ Đang lưu...', saved: '✓ Đã lưu', error: '✕ Lỗi lưu', idle: '✓ Đã lưu' }
   return (
     <div className="board-status-badge">
-      {labels[status] || '...'}
+      {labels[status] || '✓ Đã lưu'}
     </div>
   )
 }

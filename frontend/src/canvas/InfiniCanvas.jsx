@@ -306,6 +306,11 @@ export default function InfiniCanvas({ boardId }) {
           SharePanel: null,
           KeyboardShortcutsDialog: null,
           QuickActions: null,
+          ActionsMenu: null,
+          HelpMenu: null,
+          DebugMenu: null,
+          MenuPanel: null,
+          TopPanel: null,
           InFrontOfTheCanvas: AppOverlay,
         }}
       >
