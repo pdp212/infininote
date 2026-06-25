@@ -606,17 +606,17 @@ html, body, #root {
 .dashboard-header-text h2 {
   font-size: 32px;
   margin-bottom: 8px;
-  color: var(--text-primary);
+  color: #ffffff;
 }
 
 .dashboard-header-text p {
   font-size: 14px;
-  color: var(--text-secondary);
+  color: #a0a0a0;
 }
 
 .create-btn {
   background: transparent;
-  color: var(--text-primary);
+  color: #ffffff;
   border: 1px solid rgba(255, 255, 255, 0.2);
   padding: 10px 20px;
   border-radius: 999px;
@@ -627,7 +627,7 @@ html, body, #root {
 
 .create-btn:hover {
   background: rgba(255,255,255,0.05);
-  border-color: var(--text-primary);
+  border-color: #ffffff;
 }
 
 .boards-grid {
