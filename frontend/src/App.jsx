@@ -7,7 +7,6 @@
 import { useEffect } from 'react'
 import useStore from './store/useStore'
 import LockScreen from './components/LockScreen'
-import Header from './components/Header'
 import Dashboard from './pages/Dashboard'
 import Board from './pages/Board'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
@@ -44,8 +43,6 @@ export default function App() {
 
   return (
     <div className={`app-shell theme-${theme}`}>
-      <Header />
-
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Dashboard />} />

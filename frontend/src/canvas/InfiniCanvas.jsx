@@ -8,7 +8,9 @@
  *         của thiết bị khác (camera, tool selection, color)
  */
 import { useCallback, useRef, useEffect, useState } from 'react'
-import { Tldraw, useEditor } from '@tldraw/tldraw'
+import { Tldraw, useEditor, DefaultSharePanel } from '@tldraw/tldraw'
+import { useNavigate } from 'react-router-dom'
+import { ThemeToggle, StatusBadge, SaveIndicator } from '../components/Header'
 import '@tldraw/tldraw/tldraw.css'
 import { AssetRecordType } from '@tldraw/tlschema'
 import { useWebSocket } from './useWebSocket'
@@ -278,6 +280,34 @@ function CanvasInner({ initialSnapshot, boardId }) {
   return null
 }
 
+// ── Custom Share Panel ──────────────────────────────────────────
+function CustomSharePanel() {
+  const navigate = useNavigate()
+  return (
+    <div style={{ pointerEvents: 'all', display: 'flex', alignItems: 'center', gap: '12px', paddingRight: '8px' }}>
+      <SaveIndicator />
+      <StatusBadge />
+      <ThemeToggle />
+      <button 
+        onClick={() => navigate('/')} 
+        style={{ 
+          background: 'var(--brand-primary)', 
+          color: 'white', 
+          border: 'none', 
+          padding: '6px 12px', 
+          borderRadius: '8px', 
+          cursor: 'pointer', 
+          fontWeight: 500,
+          fontSize: '13px'
+        }}
+      >
+        Quay lại
+      </button>
+      <DefaultSharePanel />
+    </div>
+  )
+}
+
 // ── Main Component ──────────────────────────────────────────────
 export default function InfiniCanvas({ boardId }) {
   const initialSnapshot = useStore(s => s.initialSnapshot)
@@ -295,6 +325,7 @@ export default function InfiniCanvas({ boardId }) {
           // InFrontOfTheCanvas render trong tldraw's stacking context →
           // không có z-index conflicts, useEditor() hoạt động chính xác
           InFrontOfTheCanvas: FocusExitButton,
+          SharePanel: CustomSharePanel,
         }}
       >
         <CanvasInner initialSnapshot={initialSnapshot} boardId={boardId} />

@@ -5,7 +5,7 @@
 import useStore from '../store/useStore'
 
 // ── Status badge ────────────────────────────────────────────────
-function StatusBadge() {
+export function StatusBadge() {
   const status = useStore(s => s.connectionStatus)
   const labels = {
     connected: 'Đã kết nối',
@@ -21,7 +21,7 @@ function StatusBadge() {
 }
 
 // ── Save indicator ──────────────────────────────────────────────
-function SaveIndicator() {
+export function SaveIndicator() {
   const saveStatus = useStore(s => s.saveStatus)
   const icons = { saving: '⏳', saved: '✓', error: '✗' }
   const labels = { saving: 'Đang lưu…', saved: 'Đã lưu', error: 'Lỗi lưu' }
@@ -34,7 +34,7 @@ function SaveIndicator() {
 }
 
 // ── Theme Toggle ────────────────────────────────────────────────
-function ThemeToggle() {
+export function ThemeToggle() {
   const theme = useStore(s => s.theme)
   const toggleTheme = useStore(s => s.toggleTheme)
 
@@ -49,22 +49,16 @@ function ThemeToggle() {
   )
 }
 
-// ── Header Component ────────────────────────────────────────────
+// ── Dashboard Header Component ──────────────────────────────────
 export default function Header() {
   return (
-    <header className="app-header">
+    <header className="app-header dashboard-only-header">
       <div className="header-brand">
         <div className="header-logo" aria-hidden="true">∞</div>
         <span className="header-title">InfiniNote</span>
       </div>
-      
-      {/* Container cho các Menu công cụ tldraw sau này sẽ được CSS kéo lên đây */}
-      <div id="tldraw-menu-portal" className="header-menus"></div>
-
-      <div className="header-right">
+      <div className="header-controls">
         <ThemeToggle />
-        <SaveIndicator />
-        <StatusBadge />
       </div>
     </header>
   )

@@ -265,12 +265,6 @@ html, body, #root {
   background: var(--bg-base) !important;
 }
 
-/* Push Tldraw UI down so it is not covered by the fixed app-header */
-.tlui-layout__top,
-.tlui-layout {
-  padding-top: var(--header-height) !important;
-}
-
 /* ── Lock Screen ─────────────────────────────────────────────── */
 
 .lock-overlay {

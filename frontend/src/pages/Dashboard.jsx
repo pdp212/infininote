@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import Header from '../components/Header'
 
 export default function Dashboard() {
   const navigate = useNavigate()
@@ -38,8 +39,10 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="dashboard-container">
-      <div className="dashboard-header">
+    <>
+      <Header />
+      <div className="dashboard-container" style={{ paddingTop: '52px' }}>
+        <div className="dashboard-header">
         <h2>Không gian làm việc</h2>
         <button className="create-btn" onClick={createNewBoard}>
           + Tạo bảng mới
@@ -64,5 +67,6 @@ export default function Dashboard() {
         )}
       </div>
     </div>
+    </>
   )
 }
