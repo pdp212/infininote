@@ -11,7 +11,14 @@
 NOTE
 infininote
 
-
+# Tài liệu và file thiết kế bí mật / cá nhân
+feedback/
+*.pdf
+*.png
+*.jpg
+*.jpeg
+Architecting*.md
+frontend/test_puppeteer*.js
 # Python
 __pycache__/
 *.pyc
