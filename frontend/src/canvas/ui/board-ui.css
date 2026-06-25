@@ -1,109 +1,173 @@
-/* Board Screen Overlay Layout */
-.board-screen-overlay {
+:root {
+  --board-shell-bg: #1f1f23;
+  --board-shell-bg-hover: #25252b;
+  --board-shell-border: rgba(255, 255, 255, 0.08);
+  --board-shell-shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
+
+  --board-text-primary: #f5f5f7;
+  --board-text-secondary: rgba(255, 255, 255, 0.65);
+
+  --board-accent: #7c5cff;
+  --board-accent-hover: #6d4df5;
+
+  --board-radius-panel: 16px;
+  --board-radius-button: 12px;
+  --board-radius-pill: 999px;
+
+  --board-gap: 12px;
+  --board-edge: 16px;
+}
+
+/* ── Shell Layer ── */
+.infininote-board-shell {
   position: absolute;
   inset: 0;
-  pointer-events: none; /* Let clicks pass through to canvas */
-  z-index: 300; /* Above tldraw canvas */
-  display: flex;
+  pointer-events: none;
+  z-index: 200;
 }
 
-/* Base style for floating panels */
-.floating-panel {
+.infininote-board-shell .panel-interactive {
+  pointer-events: auto;
+}
+
+/* ── Panel Base ── */
+.infininote-panel {
+  background: var(--board-shell-bg);
+  border: 1px solid var(--board-shell-border);
+  border-radius: var(--board-radius-panel);
+  box-shadow: var(--board-shell-shadow);
+  color: var(--board-text-primary);
+  backdrop-filter: blur(8px);
+}
+
+/* ── Specific Region Placements ── */
+.board-top-left-cluster {
   position: absolute;
-  pointer-events: auto; /* Re-enable clicks on panels */
+  top: var(--board-edge);
+  left: var(--board-edge);
+  display: flex;
+  flex-direction: column;
+  gap: var(--board-gap);
 }
 
-/* The actual dark shell box */
-.panel-shell {
-  background: #1f1f23;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 16px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+.board-top-right-status {
+  position: absolute;
+  top: var(--board-edge);
+  right: var(--board-edge);
+  display: flex;
+  align-items: center;
+  gap: var(--board-gap);
+}
+
+.board-right-inspector {
+  position: absolute;
+  top: 80px;
+  right: var(--board-edge);
+  width: 168px;
+}
+
+.board-zoom-dock {
+  position: absolute;
+  left: var(--board-edge);
+  bottom: var(--board-edge);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: var(--board-radius-pill);
+}
+
+/* Override default tldraw panel colors when inside our custom wrapper */
+.infininote-panel {
+  --color-panel: transparent;
+  --color-background: transparent;
+}
+
+/* ── Component Specific Styles ── */
+
+.board-header-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 48px;
+  padding: 8px 10px;
+  gap: 12px;
+  min-width: 360px;
+}
+
+.board-header-left, .board-header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.board-left-tool-rail {
+  width: 64px;
   padding: 8px;
-  color: #fff;
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
-.panel-shell.flex-row {
-  flex-direction: row;
+.board-tool-btn {
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--board-text-primary);
+  display: inline-flex;
   align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s, box-shadow 0.15s;
 }
 
-.divider {
-  width: 1px;
-  height: 24px;
-  background: rgba(255, 255, 255, 0.1);
-  margin: 0 4px;
+.board-tool-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
 }
 
-/* ── Specific Region Placements ── */
-
-.top-left-board-bar {
-  top: 16px;
-  left: 16px;
+.board-tool-btn.is-active {
+  background: rgba(124, 92, 255, 0.18);
+  box-shadow: inset 0 0 0 1px rgba(124, 92, 255, 0.35);
 }
 
-.left-toolbar {
-  top: 80px;
-  left: 16px;
+.board-tool-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
-.status-cluster {
-  top: 16px;
-  right: 16px;
+.board-tool-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
+  margin: 2px 0;
 }
 
-.inspector-panel {
-  top: 72px;
-  right: 16px;
-}
-
-.zoom-dock {
-  bottom: 16px;
-  left: 16px;
-}
-
-/* ── Tldraw CSS Overrides ── */
-
-/* Force vertical toolbar */
-.vertical-tldraw-toolbar .tlui-toolbar {
-  flex-direction: column !important;
-}
-
-.vertical-tldraw-toolbar .tlui-toolbar__tools {
-  flex-direction: column !important;
-}
-
-/* Override default tldraw UI colors within our panels to fit the shell */
-.panel-shell {
-  --color-panel: transparent;
-  --color-background: transparent;
-}
-
-/* Fix StatusCluster elements */
-.status-cluster .back-to-dashboard-btn {
-  background: #7C5CFF;
-  color: white;
-  border: none;
-  padding: 6px 12px;
-  border-radius: 8px;
+.board-status-badge {
+  height: 36px;
+  padding: 0 14px;
+  border-radius: var(--board-radius-pill);
+  background: var(--board-shell-bg);
+  border: 1px solid var(--board-shell-border);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   font-size: 13px;
+}
+
+.board-back-btn {
+  height: 40px;
+  padding: 0 16px;
+  border-radius: var(--board-radius-pill);
+  border: 0;
+  background: var(--board-accent);
+  color: white;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background 0.2s;
 }
 
-.status-cluster .back-to-dashboard-btn:hover {
-  background: #6a4deb;
+.board-back-btn:hover {
+  background: var(--board-accent-hover);
 }
 
-.status-cluster .status-badge,
-.status-cluster .save-indicator {
-  padding: 4px 8px;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.05);
-  font-size: 13px;
-  white-space: nowrap;
-}
