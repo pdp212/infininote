@@ -5,7 +5,8 @@ export function useBoardActions() {
   const editor = useEditor()
   const navigate = useNavigate()
 
-  const history = useValue('history', () => editor.getHistory(), [editor])
+  const canUndo = useValue('canUndo', () => editor.getCanUndo(), [editor])
+  const canRedo = useValue('canRedo', () => editor.getCanRedo(), [editor])
   const selectedShapeIds = useValue('selectedShapeIds', () => editor.getSelectedShapeIds(), [editor])
 
   const undo = () => editor.undo()
@@ -40,8 +41,8 @@ export function useBoardActions() {
     resetZoom,
     fitToScreen,
     goToDashboard,
-    canUndo: history.numUndos > 0,
-    canRedo: history.numRedos > 0,
+    canUndo,
+    canRedo,
     hasSelection: selectedShapeIds.length > 0,
   }
 }
