@@ -14,9 +14,12 @@ const IconButton = ({ onClick, disabled, children, title }) => (
   </button>
 )
 
+import { useQuickCapture } from '../../../features/journal/useQuickCapture'
+
 export default function BoardHeaderBar() {
   const { undo, redo, deleteSelection, duplicateSelection, canUndo, canRedo } = useBoardActions()
   const { hasSelection } = useBoardSelection()
+  const { createQuickNote, createQuickText } = useQuickCapture()
 
   return (
     <div className="infininote-panel board-header-bar">
@@ -27,6 +30,19 @@ export default function BoardHeaderBar() {
       </div>
       
       <div className="board-tool-divider" style={{ width: '1px', height: '20px', margin: '0 8px' }} />
+      
+      {/* --- Quick Capture Group --- */}
+      <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+        <button onClick={createQuickNote} style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'rgba(43, 214, 123, 0.1)', color: '#2bd67b', border: '1px solid rgba(43, 214, 123, 0.3)', borderRadius: '4px', padding: '4px 8px', fontSize: '13px', cursor: 'pointer', fontWeight: 500 }}>
+          <span style={{ fontSize: '16px' }}>+</span> Note
+        </button>
+        <button onClick={createQuickText} style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'transparent', color: '#ccc', border: '1px solid #444', borderRadius: '4px', padding: '4px 8px', fontSize: '13px', cursor: 'pointer', fontWeight: 500 }}>
+          <span style={{ fontSize: '16px' }}>+</span> Text
+        </button>
+      </div>
+
+      <div className="board-tool-divider" style={{ width: '1px', height: '20px', margin: '0 8px' }} />
+
       
       <div className="board-header-right">
         <IconButton onClick={undo} disabled={!canUndo} title="Undo">

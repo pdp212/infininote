@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Header from '../components/Header'
+import { getOrCreateTodayJournalBoard, getOrCreateYesterdayJournalBoard } from '../features/journal/journalBoardService'
 
 export default function Dashboard() {
   const navigate = useNavigate()
@@ -77,14 +78,49 @@ export default function Dashboard() {
       <div className="dashboard-container">
         <div className="dashboard-header">
           <div className="dashboard-header-text">
-            <h2>Không gian làm việc</h2>
+            <h2>Nhật ký & Ghi chú</h2>
             <p>{boards.length} bảng • Cập nhật gần đây</p>
           </div>
-          <button className="create-btn" onClick={createNewBoard}>
-            + Tạo bảng mới
-          </button>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button className="create-btn" onClick={() => {
+              const board = getOrCreateTodayJournalBoard()
+              navigate(`/board/${board.id}`)
+            }} style={{ background: '#2bd67b', color: '#000', fontWeight: 'bold' }}>
+              + Mở Journal hôm nay
+            </button>
+            <button className="create-btn" onClick={() => {
+              const board = getOrCreateYesterdayJournalBoard()
+              navigate(`/board/${board.id}`)
+            }} style={{ background: 'transparent', border: '1px solid #555', color: '#ccc' }}>
+              Hôm qua
+            </button>
+            <button className="create-btn" onClick={createNewBoard} style={{ background: '#333' }}>
+              + Bảng trống
+            </button>
+          </div>
         </div>
 
+        {/* --- Recent Journals Section --- */}
+        <div style={{ marginBottom: '32px' }}>
+          <h3 style={{ fontSize: '14px', color: '#aaa', textTransform: 'uppercase', marginBottom: '16px' }}>Nhật ký gần đây</h3>
+          <div className="boards-grid">
+            {(() => {
+              const journals = boards.filter(b => b.boardType === 'journal')
+              if (journals.length === 0) return <p style={{ color: '#666', fontSize: '13px' }}>Chưa có nhật ký nào.</p>
+              return journals.slice(0, 4).map(board => (
+                <div key={board.id} className="board-card" onClick={() => openBoard(board)} style={{ background: 'rgba(43, 214, 123, 0.05)', border: '1px solid rgba(43, 214, 123, 0.2)' }}>
+                  <div className="board-card-icon" style={{ background: 'transparent' }}>📓</div>
+                  <div className="board-card-info">
+                    <h3 style={{ color: '#2bd67b' }}>{board.title}</h3>
+                    <p>{new Date(board.lastAccessed).toLocaleString('vi-VN')}</p>
+                  </div>
+                </div>
+              ))
+            })()}
+          </div>
+        </div>
+
+        <h3 style={{ fontSize: '14px', color: '#aaa', textTransform: 'uppercase', marginBottom: '16px' }}>Tất cả các bảng</h3>
       <div className="boards-grid">
         {boards.length === 0 ? (
           <div className="empty-state">

@@ -15,9 +15,12 @@ const Icons = {
   shape: <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
 }
 
+import { useQuickCapture } from '../../../features/journal/useQuickCapture'
+
 export default function LeftToolRail() {
   const { currentToolId } = useCurrentTool()
   const { setTool } = useBoardActions()
+  const { createQuickNote } = useQuickCapture()
 
   const groups = {
     nav: BOARD_TOOLS.filter(t => t.group === 'nav'),
@@ -34,6 +37,10 @@ export default function LeftToolRail() {
         key={tool.id}
         className={`board-tool-btn ${isActive ? 'is-active' : ''} ${tool.id === 'note' ? 'quick-note-btn' : ''}`}
         onClick={() => {
+          if (tool.id === 'note') {
+            createQuickNote()
+            return
+          }
           if (tool.tool) setTool(tool.tool)
           else if (tool.action === 'insert-image') {
             // Future image upload action
