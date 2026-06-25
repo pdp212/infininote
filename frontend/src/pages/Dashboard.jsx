@@ -68,6 +68,13 @@ export default function Dashboard() {
                   <span style={{ color: '#10B981' }}>●</span> Đã đồng bộ
                 </div>
               </div>
+              <div className="board-card-actions" onClick={(e) => { e.stopPropagation(); /* TODO: Open context menu */ }}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#999' }}>
+                  <circle cx="12" cy="12" r="1"></circle>
+                  <circle cx="19" cy="12" r="1"></circle>
+                  <circle cx="5" cy="12" r="1"></circle>
+                </svg>
+              </div>
             </div>
           ))
         )}
