@@ -32,7 +32,7 @@ export default function LeftToolRail() {
     return (
       <button
         key={tool.id}
-        className={`board-tool-btn ${isActive ? 'is-active' : ''}`}
+        className={`board-tool-btn ${isActive ? 'is-active' : ''} ${tool.id === 'note' ? 'quick-note-btn' : ''}`}
         onClick={() => {
           if (tool.tool) setTool(tool.tool)
           else if (tool.action === 'insert-image') {

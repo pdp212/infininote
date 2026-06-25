@@ -103,16 +103,47 @@ function FocusExitButton() {
   )
 }
 
+function EmptyBoardHint() {
+  const editor = useEditor()
+  const [isEmpty, setIsEmpty] = useState(false)
+
+  useEffect(() => {
+    if (!editor) return
+    const checkEmpty = () => {
+      const records = editor.store.allRecords().filter(r => r.typeName !== 'page' && !SESSION_TYPES.has(r.typeName) && r.typeName !== 'document' && r.typeName !== 'camera')
+      // Note: Tldraw creates a few default records. Usually we check shape records.
+      const shapes = editor.store.allRecords().filter(r => r.typeName === 'shape')
+      setIsEmpty(shapes.length === 0)
+    }
+    checkEmpty()
+    return editor.store.listen(checkEmpty, { scope: 'document' })
+  }, [editor])
+
+  if (!isEmpty) return null
+
+  return (
+    <div style={{
+      position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+      pointerEvents: 'none', color: '#888', fontSize: '18px', fontWeight: 500, opacity: 0.5, zIndex: -1,
+      textAlign: 'center'
+    }}>
+      Nhấn Note để bắt đầu ghi chú
+    </div>
+  )
+}
+
 function AppOverlay() {
   return (
     <>
       <FocusExitButton />
+      <EmptyBoardHint />
       <BoardScreen />
     </>
   )
 }
 
 import { useBoardSync } from '../features/boards/hooks/useBoardSync'
+import { useNoteWorkflow } from '../features/boards/hooks/useNoteWorkflow'
 
 // ── Canvas Inner (có editor context) ───────────────────────────
 function CanvasInner({ boardId }) {
@@ -121,6 +152,8 @@ function CanvasInner({ boardId }) {
 
   // Kết nối hook đồng bộ
   useBoardSync(editor, boardId)
+  // Kết nối hook note workflow
+  useNoteWorkflow(editor, boardId)
 
   // Đăng ký asset handler: tldraw v2.4.x gọi với (info) không phải (asset, file)
   // info = { type: 'file', file: File } → phải trả về TLAsset hoặc null

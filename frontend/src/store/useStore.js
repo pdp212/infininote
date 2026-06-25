@@ -8,12 +8,23 @@ const useStore = create((set) => ({
   isUnlocked: false,
   unlock: () => set({ isUnlocked: true }),
 
-  // WebSocket connection
-  connectionStatus: 'connecting', // 'connecting' | 'connected' | 'offline'
-  setConnectionStatus: (status) => set({ connectionStatus: status }),
-
-  // Save state
-  saveStatus: 'saved', // 'saved' | 'saving' | 'error'
+  // --- Sync State Model (V5.1) ---
+  syncState: 'hydrating_local', // 'hydrating_local' | 'checking_server' | 'synced' | 'saving_local' | 'saving_remote' | 'offline_dirty' | 'conflict' | 'error'
+  lastLocalEditAt: null,
+  lastRemoteSaveAt: null,
+  lastRemoteRevision: 0,
+  hasPendingLocalChanges: false,
+  conflictDetails: null,
+  isOnline: navigator.onLine,
+  pendingServerRefresh: false,
+  lastSyncError: null,
+  lastSyncAttemptAt: null,
+  updateSyncState: (updates) => set((state) => ({ ...state, ...updates })),
+  
+  // Legacy for compatibility during refactor, will be removed if unused
+  connectionStatus: navigator.onLine ? 'connected' : 'offline',
+  setConnectionStatus: (status) => set({ connectionStatus: status, isOnline: status === 'connected' }),
+  saveStatus: 'idle',
   setSaveStatus: (status) => set({ saveStatus: status }),
 
   // Toast notifications
