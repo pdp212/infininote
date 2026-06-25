@@ -44,7 +44,7 @@ export function useWebSocket({ onMessage, boardId }) {
     setConnectionStatus('connecting')
 
     try {
-      const wsUrlBase = WS_URL.replace(/\/ws\/?$/, '').replace(/\/$/, '')
+      const wsUrlBase = WS_URL.trim().replace(/\/ws\/?$/, '').replace(/\/$/, '')
       const url = `${wsUrlBase}/ws/${boardId}`
       const ws = new WebSocket(url)
       wsRef.current = ws
