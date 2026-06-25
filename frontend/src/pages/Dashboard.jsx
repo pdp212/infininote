@@ -41,13 +41,16 @@ export default function Dashboard() {
   return (
     <>
       <Header />
-      <div className="dashboard-container" style={{ paddingTop: '52px' }}>
+      <div className="dashboard-container">
         <div className="dashboard-header">
-        <h2>Không gian làm việc</h2>
-        <button className="create-btn" onClick={createNewBoard}>
-          + Tạo bảng mới
-        </button>
-      </div>
+          <div className="dashboard-header-text">
+            <h2>Không gian làm việc</h2>
+            <p>{boards.length} bảng • Cập nhật gần đây</p>
+          </div>
+          <button className="create-btn" onClick={createNewBoard}>
+            + Tạo bảng mới
+          </button>
+        </div>
 
       <div className="boards-grid">
         {boards.length === 0 ? (
@@ -60,7 +63,10 @@ export default function Dashboard() {
               <div className="board-card-icon">🖼️</div>
               <div className="board-card-info">
                 <h3>{board.title}</h3>
-                <p>Truy cập lần cuối: {new Date(board.lastAccessed).toLocaleString('vi-VN')}</p>
+                <p>Cập nhật lần cuối: {new Date(board.lastAccessed).toLocaleString('vi-VN')}</p>
+                <div className="board-card-meta">
+                  <span style={{ color: '#10B981' }}>●</span> Đã đồng bộ
+                </div>
               </div>
             </div>
           ))
