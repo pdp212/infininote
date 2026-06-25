@@ -1,13 +1,13 @@
-import { useEditor, useValue } from '@tldraw/tldraw'
+import { useBoardEditorBridge } from './useBoardEditorBridge'
 
 export function useCurrentTool() {
-  const editor = useEditor()
-  const currentToolId = useValue('current tool id', () => editor.getCurrentToolId(), [editor])
+  const { currentTool, isReady } = useBoardEditorBridge()
 
-  const isToolActive = (toolId) => currentToolId === toolId
+  const isToolActive = (toolId) => isReady && currentTool === toolId
 
   return {
-    currentToolId,
+    currentToolId: currentTool,
     isToolActive,
   }
 }
+

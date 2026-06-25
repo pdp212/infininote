@@ -38,6 +38,7 @@
   box-shadow: var(--board-shell-shadow);
   color: var(--board-text-primary);
   backdrop-filter: blur(8px);
+  pointer-events: auto;
 }
 
 /* ── Specific Region Placements ── */

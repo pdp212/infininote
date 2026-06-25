@@ -1,22 +1,20 @@
-import { useEditor, useValue } from '@tldraw/tldraw'
+import { useBoardEditorBridge } from './useBoardEditorBridge'
 
 export function useBoardSelection() {
-  const editor = useEditor()
-  const selectedShapeIds = useValue('selectedShapeIds', () => editor.getSelectedShapeIds(), [editor])
+  const { hasSelection, selectedShapeIds, editor, isReady } = useBoardEditorBridge()
   
-  const hasSelection = selectedShapeIds.length > 0
   const selectionCount = selectedShapeIds.length
 
-  const selectedShapeType = useValue('selectedShapeType', () => {
-    if (selectedShapeIds.length === 0) return null
-    if (selectedShapeIds.length === 1) {
+  let selectedShapeType = null
+  if (isReady && selectionCount > 0) {
+    if (selectionCount === 1) {
       const shape = editor.getShape(selectedShapeIds[0])
-      return shape ? shape.type : null
+      selectedShapeType = shape ? shape.type : null
+    } else {
+      const types = new Set(selectedShapeIds.map(id => editor.getShape(id)?.type))
+      selectedShapeType = types.size === 1 ? Array.from(types)[0] : 'mixed'
     }
-    // Mixed check
-    const types = new Set(selectedShapeIds.map(id => editor.getShape(id)?.type))
-    return types.size === 1 ? Array.from(types)[0] : 'mixed'
-  }, [editor, selectedShapeIds])
+  }
 
   return {
     hasSelection,
@@ -25,3 +23,4 @@ export function useBoardSelection() {
     selectedShapeType,
   }
 }
+
