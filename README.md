@@ -55,12 +55,50 @@ Browser/PWA (Vercel)
 
 ## 📁 Cấu trúc dự án
 
-```
+```text
 InfiniNote/
-├── frontend/          # React + Vite + tldraw + React Router (PWA)
-├── backend/           # FastAPI + WebSocket + MongoDB Motor (CRDT-lite)
-├── .github/workflows/ # Keep-alive cron job
-├── deploy.sh          # Script đẩy code tự động deploy
+├── .github/
+│   └── workflows/
+│       └── keep-alive.yml       # Keep-alive cron job
+├── backend/                     # FastAPI + WebSocket + MongoDB
+│   ├── .env.example
+│   ├── Procfile
+│   ├── database.py
+│   ├── main.py
+│   ├── models.py
+│   └── requirements.txt
+├── frontend/                    # React + Vite + tldraw + PWA
+│   ├── public/
+│   │   ├── icons/
+│   │   │   ├── icon-192.png
+│   │   │   └── icon-512.png
+│   │   └── manifest.json
+│   ├── src/
+│   │   ├── canvas/              # Core Editor Engine
+│   │   │   ├── ui/
+│   │   │   │   ├── BoardScreen.jsx  # Floating UI Shell
+│   │   │   │   └── board-ui.css     # UI Styling
+│   │   │   ├── InfiniCanvas.jsx # Board Wrapper
+│   │   │   └── useWebSocket.js  # CRDT Sync Logic
+│   │   ├── components/
+│   │   │   ├── Header.jsx       # Global Header
+│   │   │   └── LockScreen.jsx   # Passcode protection
+│   │   ├── pages/
+│   │   │   ├── Board.jsx        # Editor Route
+│   │   │   └── Dashboard.jsx    # Workspace Route
+│   │   ├── store/
+│   │   │   └── useStore.js      # Zustand State
+│   │   ├── App.jsx
+│   │   ├── index.css
+│   │   ├── colorPatch.js
+│   │   └── main.jsx
+│   ├── .env.example
+│   ├── index.html
+│   ├── package.json
+│   ├── vercel.json
+│   └── vite.config.js
+├── deploy.sh                    # Script đẩy code tự động deploy
+├── .gitignore
 └── README.md
 ```
 
