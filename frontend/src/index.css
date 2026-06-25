@@ -42,6 +42,30 @@
   --radius-lg: 16px;
 }
 
+/* Light Theme Overrides */
+.theme-light {
+  /* Dark palette becomes light */
+  --bg-base: #f7f7f9;
+  --bg-surface: #ffffff;
+  --bg-elevated: #ffffff;
+  --bg-overlay: rgba(255, 255, 255, 0.95);
+
+  /* Text becomes dark */
+  --text-primary: #111120;
+  --text-secondary: #5a5a7a;
+  --text-muted: #9494b8;
+
+  /* Borders become darker */
+  --border-subtle: rgba(124, 92, 252, 0.15);
+  --border-normal: rgba(124, 92, 252, 0.3);
+  --border-focus: rgba(124, 92, 252, 0.8);
+
+  /* Shadows for light mode */
+  --shadow-sm: 0 2px 8px rgba(0,0,0,0.05);
+  --shadow-md: 0 8px 24px rgba(0,0,0,0.1);
+  --shadow-glow: 0 0 20px rgba(124, 92, 252, 0.2);
+}
+
 *, *::before, *::after {
   box-sizing: border-box;
   margin: 0;
@@ -81,7 +105,7 @@ html, body, #root {
   align-items: center;
   justify-content: space-between;
   padding: 0 16px;
-  background: rgba(10, 10, 18, 0.85);
+  background: var(--bg-overlay);
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
   border-bottom: 1px solid var(--border-subtle);
@@ -118,7 +142,27 @@ html, body, #root {
 .header-right {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
+}
+
+.theme-toggle-btn {
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 16px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.theme-toggle-btn:hover {
+  background: var(--bg-elevated);
+  border-color: var(--border-normal);
 }
 
 /* Connection status badge */
@@ -471,20 +515,44 @@ html, body, #root {
 /* ── tldraw overrides ────────────────────────────────────────── */
 
 .tl-background {
-  background: #0d0d1a !important;
+  background: var(--bg-base) !important;
 }
 
 /* Hide tldraw default share button area since we don't use it */
-[data-testid="page-menu"] {
-  display: none;
+.tlui-share-zone { display: none !important; }
+
+/* FIX 5: Move all UI to the App Header */
+.canvas-wrapper .tlui-layout__top__left {
+  position: fixed !important;
+  top: 6px !important;
+  left: 180px !important;
+  z-index: 1001 !important;
+  padding: 0 !important;
 }
 
-/* FIX: Push tldraw’s top-left (main menu) and top-right (style panel)
-   xuống dưới header của chúng ta khi canvas là full-screen (top:0).
-   Nếu không có fix này, menu bị header (z-index:1000) che mất. */
-.canvas-wrapper .tlui-layout__top__left,
 .canvas-wrapper .tlui-layout__top__right {
-  padding-top: var(--header-height);
+  position: fixed !important;
+  top: 6px !important;
+  right: 220px !important;
+  z-index: 1001 !important;
+  padding: 0 !important;
+}
+
+.canvas-wrapper .tlui-layout__bottom__main {
+  position: fixed !important;
+  top: 6px !important;
+  bottom: auto !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  z-index: 1001 !important;
+  padding: 0 !important;
+}
+
+/* Hide minimap, help, and zoom menus to save space */
+.canvas-wrapper .tlui-minimap,
+.canvas-wrapper .tlui-help-menu,
+.canvas-wrapper .tlui-zoom-menu {
+  display: none !important;
 }
 
 /* FIX 1: Custom color palette — override tldraw theme CSS variables
@@ -603,4 +671,88 @@ html, body, #root {
 .focus-exit-icon {
   font-size: 16px;
   line-height: 1;
+}
+
+/* ── Dashboard ──────────────────────────────────────────────── */
+
+.dashboard-container {
+  padding: 80px 40px 40px;
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 32px;
+}
+
+.create-btn {
+  background: var(--brand-primary);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.create-btn:hover {
+  background: var(--brand-secondary);
+}
+
+.boards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 24px;
+}
+
+.board-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 20px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.board-card:hover {
+  border-color: var(--brand-primary);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm);
+}
+
+.board-card-icon {
+  font-size: 32px;
+  background: var(--bg-elevated);
+  width: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+}
+
+.board-card-info h3 {
+  margin-bottom: 4px;
+  font-size: 16px;
+  color: var(--text-primary);
+}
+
+.board-card-info p {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.empty-state {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 60px 0;
+  color: var(--text-muted);
 }

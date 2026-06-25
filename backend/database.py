@@ -45,3 +45,32 @@ async def upsert_board(board_id: str, snapshot: dict) -> None:
         {"$set": {"snapshot": snapshot, "updated_at": __import__("datetime").datetime.utcnow().isoformat()}},
         upsert=True,
     )
+
+
+async def apply_delta(board_id: str, delta: dict) -> None:
+    """Áp dụng bản vá (DELTA) vào snapshot của canvas hiện tại (CRDT-lite)."""
+    collection = get_board_collection()
+    
+    set_ops = {}
+    unset_ops = {}
+    
+    # 1. Thêm mới
+    for rec_id, rec in delta.get("added", {}).items():
+        set_ops[f"snapshot.store.{rec_id}"] = rec
+        
+    # 2. Cập nhật
+    for rec_id, rec in delta.get("updated", {}).items():
+        set_ops[f"snapshot.store.{rec_id}"] = rec
+        
+    # 3. Xoá
+    for rec_id in delta.get("removed", []):
+        unset_ops[f"snapshot.store.{rec_id}"] = ""
+        
+    update_query = { "$set": {"updated_at": __import__("datetime").datetime.utcnow().isoformat()} }
+    if set_ops:
+        update_query["$set"].update(set_ops)
+    if unset_ops:
+        update_query["$unset"] = unset_ops
+        
+    if set_ops or unset_ops:
+        await collection.update_one({"_id": board_id}, update_query, upsert=True)

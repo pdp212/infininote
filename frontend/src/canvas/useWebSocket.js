@@ -14,7 +14,7 @@ const INITIAL_DELAY = 1000
 const MAX_DELAY = 30000
 const HEARTBEAT_INTERVAL = 25000
 
-export function useWebSocket({ onMessage }) {
+export function useWebSocket({ onMessage, boardId }) {
   const wsRef = useRef(null)
   const reconnectTimerRef = useRef(null)
   const heartbeatRef = useRef(null)
@@ -39,11 +39,13 @@ export function useWebSocket({ onMessage }) {
   const connect = useCallback(() => {
     if (!isMounted.current) return
     if (wsRef.current?.readyState === WebSocket.OPEN) return
+    if (!boardId) return // Đợi có boardId mới connect
 
     setConnectionStatus('connecting')
 
     try {
-      const ws = new WebSocket(WS_URL)
+      const url = `${WS_URL.replace(/\/ws$/, '')}/ws/${boardId}`
+      const ws = new WebSocket(url)
       wsRef.current = ws
 
       ws.onopen = () => {
@@ -85,17 +87,20 @@ export function useWebSocket({ onMessage }) {
       console.error('[WS] Failed to create:', err)
       setConnectionStatus('offline')
     }
-  }, [onMessage, setConnectionStatus, startHeartbeat, clearTimers])
+  }, [onMessage, setConnectionStatus, startHeartbeat, clearTimers, boardId])
 
   useEffect(() => {
     isMounted.current = true
-    connect()
+    if (boardId) connect()
     return () => {
       isMounted.current = false
       clearTimers()
-      wsRef.current?.close(1000, 'Component unmount')
+      if (wsRef.current) {
+        wsRef.current.close(1000, 'Component unmount')
+        wsRef.current = null
+      }
     }
-  }, [connect, clearTimers])
+  }, [connect, clearTimers, boardId])
 
   const sendMessage = useCallback((msg) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {

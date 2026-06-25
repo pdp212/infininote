@@ -8,15 +8,30 @@
 
 ---
 
-## 🏗️ Kiến trúc
+## 💡 Tính năng Nổi bật
+
+- ✅ **Multi-board Dashboard** — Quản lý nhiều không gian làm việc (board) riêng biệt với URL động.
+- ✅ **Đồng bộ CRDT-lite (DELTA Sync)** — Vẽ cùng lúc trên nhiều thiết bị siêu mượt mà không lo bị đè nét.
+- ✅ **Canva-like UI** — Giao diện được thiết kế tối giản, công cụ được gộp gọn lên Header, mở rộng 100% không gian canvas.
+- ✅ **Infinite Canvas** — Tích hợp tldraw: Zoom, pan, vẽ, ghi chú, hình khối, mũi tên.
+- ✅ **Image Paste** — Dán ảnh trực tiếp từ clipboard (Ctrl+V) và tự động upload lên Cloudinary.
+- ✅ **PWA Ready** — Cài lên iPhone/Android hoặc desktop như app native.
+- ✅ **Light/Dark Mode** — Hỗ trợ chuyển đổi theme nhanh chóng.
+- ✅ **Offline Resilient** — Tự động fallback sang REST API khi mất mạng & auto-reconnect WebSocket.
+
+---
+
+## 🏗️ Kiến trúc & Dữ liệu
 
 ```
 Browser/PWA (Vercel)
-    │── WebSocket ──→ FastAPI (Render) ──→ MongoDB Atlas M0
-    │── REST API ───→ FastAPI (Render) ──→ Cloudinary (Images)
+    │
+    │── WebSocket (DELTA patch) ──→ FastAPI (Render) ──→ MongoDB Atlas M0
+    │
+    │── REST API (Fallback/Load) ─→ FastAPI (Render) ──→ Cloudinary (Images)
 ```
 
-## 📦 Stack hoàn toàn miễn phí
+### 📦 Stack hoàn toàn miễn phí
 
 | Layer | Service | Free Tier |
 |-------|---------|-----------|
@@ -32,71 +47,9 @@ Browser/PWA (Vercel)
 
 | Service | URL |
 |---------|-----|
+| 🎨 Frontend (Vercel) | https://infininote-kappa.vercel.app |
 | ⚙️ Backend (Render) | https://infininote.onrender.com |
 | 🔌 WebSocket | wss://infininote.onrender.com/ws |
-| 🎨 Frontend (Vercel) | https://infininote-kappa.vercel.app |
-
----
-
-## 🚀 Hướng dẫn Deploy (5 bước)
-
-### Bước 1: Clone & push lên GitHub ✅ HOÀN THÀNH
-
-```bash
-git remote: git@github.com:pdp212/infininote.git
-```
-
-### Bước 2: Tạo MongoDB Atlas M0 (Free) ✅ HOÀN THÀNH
-
-- Cluster: `cluster0.tueb7os.mongodb.net`
-- Database: `infininote_db`
-
-### Bước 3: Deploy Backend lên Render ✅ HOÀN THÀNH
-
-- URL: `https://infininote.onrender.com`
-- Start Command: `uvicorn main:app --host 0.0.0.0 --port $PORT`
-
-### Bước 4: Deploy Frontend lên Vercel
-
-1. Vào [vercel.com](https://vercel.com) → Đăng nhập
-2. **New Project** → Import GitHub repo `pdp212/infininote`
-3. **Root Directory**: `frontend`
-4. **Framework Preset**: Vite
-5. **Environment Variables** (thêm 3 biến này):
-   ```
-   VITE_WS_URL       = wss://infininote.onrender.com/ws
-   VITE_API_URL      = https://infininote.onrender.com
-   VITE_APP_PASSCODE = <mật khẩu bí mật của bạn>
-   ```
-6. Nhấn **Deploy** → Copy URL Vercel 🎉
-
-### Bước 5: Kích hoạt Keep-Alive (quan trọng!)
-
-1. GitHub repo → **Settings** → **Secrets and variables** → **Actions**
-2. Tạo secret mới:
-   - **Name**: `RENDER_URL`
-   - **Value**: `https://infininote.onrender.com`
-3. Vào tab **Actions** → Enable workflows ✅
-
----
-
-## 📱 Cài đặt PWA lên điện thoại
-
-**iOS (Safari)**:
-> Mở URL Vercel → Share (⎙) → **Thêm vào màn hình chính**
-
-**Android (Chrome)**:
-> Mở URL Vercel → Menu (⋮) → **Thêm vào màn hình chính**
-
-App sẽ mở toàn màn hình không có browser bar — như native app! 🚀
-
----
-
-## 🔒 Bảo mật
-
-App được bảo vệ bởi **Static Passcode** — mật khẩu lưu trong biến môi trường Vercel (`VITE_APP_PASSCODE`). Không ai có URL mà không biết passcode có thể truy cập canvas của bạn.
-
-**Đổi passcode**: Thay giá trị `VITE_APP_PASSCODE` trong Vercel → Redeploy.
 
 ---
 
@@ -104,25 +57,25 @@ App được bảo vệ bởi **Static Passcode** — mật khẩu lưu trong bi
 
 ```
 InfiniNote/
-├── frontend/          # React + Vite + tldraw (PWA)
-├── backend/           # FastAPI + WebSocket + MongoDB
+├── frontend/          # React + Vite + tldraw + React Router (PWA)
+├── backend/           # FastAPI + WebSocket + MongoDB Motor (CRDT-lite)
 ├── .github/workflows/ # Keep-alive cron job
+├── deploy.sh          # Script đẩy code tự động deploy
 └── README.md
 ```
 
 ---
 
-## 💡 Tính năng
+## 🚀 Hướng dẫn Deploy/Push code
 
-- ✅ **Infinite Canvas** — Zoom, pan, vẽ, ghi chú, mũi tên, hình khối
-- ✅ **Real-time sync** — Mở nhiều tab/thiết bị, thay đổi hiện ngay
-- ✅ **Image paste** — Ctrl+V dán ảnh từ clipboard, tự upload Cloudinary
-- ✅ **PWA** — Cài lên iPhone/Android như app native
-- ✅ **Dark mode** — Giao diện tối cực đẹp
-- ✅ **Auto-save** — Tự lưu sau mỗi thay đổi (debounce 600ms)
-- ✅ **Offline resilient** — Tự reconnect khi mất mạng
-- ✅ **24/7 uptime** — Keep-alive GitHub Actions mỗi 14 phút
+Dự án đã kết nối luồng CI/CD. Bất kì commit nào được đẩy lên nhánh `main` trên GitHub sẽ kích hoạt tự động:
+1. **Vercel** tự build và deploy frontend.
+2. **Render** tự pull code và deploy backend.
 
----
+Bạn chỉ cần chạy script có sẵn:
 
-*Được xây dựng với ❤️ bằng tldraw, FastAPI, và MongoDB Atlas.*
+```bash
+./deploy.sh "Lời nhắn commit của bạn"
+```
+
+*Được xây dựng bởi pdp bằng tldraw, FastAPI, và MongoDB Atlas.*

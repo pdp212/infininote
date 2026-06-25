@@ -102,13 +102,21 @@ function FocusExitButton() {
 }
 
 // ── Canvas Inner (có editor context) ───────────────────────────
-function CanvasInner({ initialSnapshot }) {
+function CanvasInner({ initialSnapshot, boardId }) {
   const editor = useEditor()
   const setSaveStatus = useStore(s => s.setSaveStatus)
   const setIsLoading = useStore(s => s.setIsLoading)
   const addToast = useStore(s => s.addToast)
+  const theme = useStore(s => s.theme)
   const isInitialized = useRef(false)
   const isSyncing = useRef(false)
+
+  // Sync theme
+  useEffect(() => {
+    if (editor) {
+      editor.user.updateUserPreferences({ isDarkMode: theme === 'dark' })
+    }
+  }, [editor, theme])
 
   // Load snapshot từ server — chỉ áp document records, giữ nguyên UI state local
   useEffect(() => {
@@ -171,8 +179,9 @@ function CanvasInner({ initialSnapshot }) {
 
   // REST fallback khi WebSocket offline
   const saveToServer = useCallback(async (snapshot) => {
+    if (!boardId) return
     try {
-      await fetch(`${API_URL}/api/board`, {
+      await fetch(`${API_URL}/api/board/${boardId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ snapshot }),
@@ -180,7 +189,7 @@ function CanvasInner({ initialSnapshot }) {
     } catch (e) {
       console.warn('[Canvas] REST save failed:', e)
     }
-  }, [])
+  }, [boardId])
 
   // FIX 4: WS handler — chỉ apply document records từ remote
   // Không ghi đè camera/tool/color của thiết bị hiện tại
@@ -201,12 +210,26 @@ function CanvasInner({ initialSnapshot }) {
       applyDocRecords(msg.payload)
       setIsLoading(false)
       isInitialized.current = true
-    } else if (msg.type === 'FULL_SYNC' || msg.type === 'DELTA') {
+    } else if (msg.type === 'FULL_SYNC') {
       if (!isSyncing.current) applyDocRecords(msg.payload)
+    } else if (msg.type === 'DELTA') {
+      if (isSyncing.current || !msg.changes) return
+      isSyncing.current = true
+      editor.store.mergeRemoteChanges(() => {
+        const toPut = [
+          ...Object.values(msg.changes.added || {}),
+          ...Object.values(msg.changes.updated || {})
+        ]
+        if (toPut.length > 0) editor.store.put(toPut)
+        
+        const toRemove = msg.changes.removed || []
+        if (toRemove.length > 0) editor.store.remove(toRemove)
+      })
+      setTimeout(() => { isSyncing.current = false }, 50)
     }
   }, [editor, setIsLoading])
 
-  const { sendMessage } = useWebSocket({ onMessage: handleWsMessage })
+  const { sendMessage } = useWebSocket({ onMessage: handleWsMessage, boardId })
 
   // FIX 4: Sync — chỉ gửi document scope (content), không gửi UI state
   const syncToServer = useDebounce(async (snapshot) => {
@@ -220,24 +243,45 @@ function CanvasInner({ initialSnapshot }) {
   useEffect(() => {
     if (!editor) return
     return editor.store.listen(
-      () => {
-        if (isSyncing.current) return
-        // getSnapshot('document') — chỉ lấy shapes, pages, assets
-        // KHÔNG lấy camera, instance, tool state
-        const snapshot = editor.store.getSnapshot('document')
-        setSaveStatus('saving')
-        syncToServer(snapshot)
+      (entry) => {
+        if (isSyncing.current || entry.source !== 'user') return
+
+        const changes = entry.changes
+        const filtered = { added: {}, updated: {}, removed: [] }
+        
+        for (const [id, rec] of Object.entries(changes.added)) {
+          if (!SESSION_TYPES.has(rec.typeName)) filtered.added[id] = rec
+        }
+        for (const [id, recs] of Object.entries(changes.updated)) {
+          if (!SESSION_TYPES.has(recs[1].typeName)) filtered.updated[id] = recs[1]
+        }
+        for (const [id, rec] of Object.entries(changes.removed)) {
+          if (!SESSION_TYPES.has(rec.typeName)) filtered.removed.push(id)
+        }
+
+        if (Object.keys(filtered.added).length || Object.keys(filtered.updated).length || filtered.removed.length) {
+          setSaveStatus('saving')
+          const sent = sendMessage({ type: 'DELTA', changes: filtered })
+          if (!sent) {
+            // Fallback REST nếu WS chết
+            syncToServer(editor.store.getSnapshot('document'))
+          } else {
+            setSaveStatus('saved')
+          }
+        }
       },
       { scope: 'document', source: 'user' }
     )
-  }, [editor, syncToServer, setSaveStatus])
+  }, [editor, sendMessage, syncToServer, setSaveStatus])
 
   return null
 }
 
 // ── Main Component ──────────────────────────────────────────────
-export default function InfiniCanvas() {
+export default function InfiniCanvas({ boardId }) {
   const initialSnapshot = useStore(s => s.initialSnapshot)
+
+  if (!boardId) return null
 
   return (
     <div className="canvas-wrapper">
@@ -252,7 +296,7 @@ export default function InfiniCanvas() {
           InFrontOfTheCanvas: FocusExitButton,
         }}
       >
-        <CanvasInner initialSnapshot={initialSnapshot} />
+        <CanvasInner initialSnapshot={initialSnapshot} boardId={boardId} />
       </Tldraw>
     </div>
   )

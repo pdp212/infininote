@@ -32,6 +32,14 @@ const useStore = create((set) => ({
   // Initial snapshot from server
   initialSnapshot: null,
   setInitialSnapshot: (snapshot) => set({ initialSnapshot: snapshot }),
+
+  // Theme
+  theme: localStorage.getItem('infininote-theme') || 'dark',
+  toggleTheme: () => set((state) => {
+    const newTheme = state.theme === 'dark' ? 'light' : 'dark'
+    localStorage.setItem('infininote-theme', newTheme)
+    return { theme: newTheme }
+  }),
 }))
 
 export default useStore

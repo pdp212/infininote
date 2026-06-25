@@ -12,7 +12,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Uplo
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
-from database import get_board, upsert_board, get_client
+from database import get_board, upsert_board, get_client, apply_delta
 from models import SnapshotPayload, ImageUploadResponse
 
 load_dotenv()
@@ -29,7 +29,7 @@ cloudinary.config(
 
 MAX_IMAGE_BYTES = int(os.getenv("MAX_IMAGE_SIZE_BYTES", 5 * 1024 * 1024))  # 5 MB default
 
-# ── Personal board ID (single board, no auth) ────────────────────────────────
+# ── Legacy personal board ID (for backward compatibility) ─────────────────────
 BOARD_ID = "personal_board_v1"
 
 
@@ -62,25 +62,31 @@ app.add_middleware(
 
 # ── WebSocket Connection Manager ─────────────────────────────────────────────
 class ConnectionManager:
-    """Quản lý danh sách WebSocket đang kết nối đến cùng một board."""
+    """Quản lý danh sách WebSocket đang kết nối, phân tách theo board_id."""
 
     def __init__(self):
-        self.active: list[WebSocket] = []
+        self.active: dict[str, list[WebSocket]] = {}
 
-    async def connect(self, ws: WebSocket):
+    async def connect(self, ws: WebSocket, board_id: str):
         await ws.accept()
-        self.active.append(ws)
-        logger.info(f"✅ Client connected. Total: {len(self.active)}")
+        if board_id not in self.active:
+            self.active[board_id] = []
+        self.active[board_id].append(ws)
+        logger.info(f"✅ Client connected to {board_id}. Total: {len(self.active[board_id])}")
 
-    def disconnect(self, ws: WebSocket):
-        if ws in self.active:
-            self.active.remove(ws)
-        logger.info(f"❌ Client disconnected. Total: {len(self.active)}")
+    def disconnect(self, ws: WebSocket, board_id: str):
+        if board_id in self.active and ws in self.active[board_id]:
+            self.active[board_id].remove(ws)
+            if not self.active[board_id]:
+                del self.active[board_id]
+        logger.info(f"❌ Client disconnected from {board_id}.")
 
-    async def broadcast(self, message: str, exclude: WebSocket = None):
-        """Phát tán message đến tất cả client, ngoại trừ sender."""
+    async def broadcast(self, message: str, board_id: str, exclude: WebSocket = None):
+        """Phát tán message đến tất cả client trong board_id, ngoại trừ sender."""
+        if board_id not in self.active:
+            return
         dead = []
-        for ws in self.active:
+        for ws in self.active[board_id]:
             if ws is exclude:
                 continue
             try:
@@ -88,7 +94,7 @@ class ConnectionManager:
             except Exception:
                 dead.append(ws)
         for ws in dead:
-            self.disconnect(ws)
+            self.disconnect(ws, board_id)
 
 
 manager = ConnectionManager()
@@ -102,19 +108,19 @@ async def health_check():
     return {"status": "ok", "service": "InfiniNote", "board": BOARD_ID}
 
 
-@app.get("/api/board")
-async def load_board():
+@app.get("/api/board/{board_id}")
+async def load_board(board_id: str):
     """Trả về snapshot tldraw hiện tại từ MongoDB."""
-    doc = await get_board(BOARD_ID)
+    doc = await get_board(board_id)
     if not doc:
         return {"snapshot": None}
     return {"snapshot": doc.get("snapshot")}
 
 
-@app.post("/api/board")
-async def save_board(payload: SnapshotPayload):
+@app.post("/api/board/{board_id}")
+async def save_board(board_id: str, payload: SnapshotPayload):
     """Lưu toàn bộ tldraw snapshot vào MongoDB (fallback khi WS offline)."""
-    await upsert_board(BOARD_ID, payload.snapshot)
+    await upsert_board(board_id, payload.snapshot)
     return {"status": "saved"}
 
 
@@ -144,18 +150,17 @@ async def upload_image(file: UploadFile = File(...)):
 
 # ── WebSocket Endpoint ───────────────────────────────────────────────────────
 
-@app.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket):
+@app.websocket("/ws/{board_id}")
+async def websocket_endpoint(websocket: WebSocket, board_id: str):
     """
-    WebSocket real-time sync:
-    - Khi client mới kết nối → gửi INIT_LOAD với snapshot hiện tại
-    - Khi nhận DELTA → persist xuống MongoDB + broadcast đến các client khác
-    - Hỗ trợ PING/PONG heartbeat để giữ kết nối sống
+    WebSocket real-time sync (CRDT-lite):
+    - Khi client mới kết nối → gửi INIT_LOAD với snapshot hiện tại của board_id
+    - Khi nhận DELTA → áp dụng thay đổi vào MongoDB + broadcast đến các client khác
     """
-    await manager.connect(websocket)
+    await manager.connect(websocket, board_id)
 
     # Gửi trạng thái canvas ban đầu cho client mới
-    doc = await get_board(BOARD_ID)
+    doc = await get_board(board_id)
     init_msg = json.dumps({
         "type": "INIT_LOAD",
         "payload": doc.get("snapshot") if doc else None,
@@ -177,16 +182,22 @@ async def websocket_endpoint(websocket: WebSocket):
             if msg_type == "PING":
                 await websocket.send_text(json.dumps({"type": "PONG"}))
 
-            elif msg_type in ("DELTA", "FULL_SYNC"):
+            elif msg_type == "DELTA":
+                changes = msg.get("changes")
+                if changes:
+                    # Apply changes to MongoDB (CRDT-lite)
+                    await apply_delta(board_id, changes)
+                    # Broadcast đến tất cả client khác
+                    await manager.broadcast(raw, board_id, exclude=websocket)
+                    
+            elif msg_type == "FULL_SYNC":
                 snapshot = msg.get("payload")
                 if snapshot:
-                    # Persist vào MongoDB bất đồng bộ
-                    await upsert_board(BOARD_ID, snapshot)
-                    # Broadcast đến tất cả client khác
-                    await manager.broadcast(raw, exclude=websocket)
+                    await upsert_board(board_id, snapshot)
+                    await manager.broadcast(raw, board_id, exclude=websocket)
 
     except WebSocketDisconnect:
-        manager.disconnect(websocket)
+        manager.disconnect(websocket, board_id)
     except Exception as e:
         logger.error(f"WS error: {e}")
-        manager.disconnect(websocket)
+        manager.disconnect(websocket, board_id)
