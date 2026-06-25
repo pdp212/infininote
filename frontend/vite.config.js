@@ -41,5 +41,14 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     sourcemap: false,
+    chunkSizeWarningLimit: 2000,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          tldraw: ['@tldraw/tldraw'],
+          vendor: ['react', 'react-dom', 'react-router-dom', 'zustand']
+        }
+      }
+    }
   },
 })

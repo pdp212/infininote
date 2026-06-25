@@ -78,6 +78,4 @@ Bạn chỉ cần chạy script có sẵn:
 ./deploy.sh "Lời nhắn commit của bạn"
 ```
 
-./deploy.sh "Lời nhắn của bạn ở đây"
-
 *Được xây dựng bởi pdp bằng tldraw, FastAPI, và MongoDB Atlas.*
