@@ -202,27 +202,48 @@
   background: var(--board-accent-hover);
 }
 
-/* ── Custom Inspector Styles ── */
+/* --- RIGHT INSPECTOR PANEL --- */
+.board-right-inspector {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 176px;
+  padding: 12px;
+  max-height: calc(100vh - 80px);
+  overflow-y: auto;
+}
+
 .inspector-section {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  margin-bottom: 16px;
 }
 
-.inspector-section:last-child {
-  margin-bottom: 0;
+.inspector-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
-.inspector-label {
+.inspector-section-title {
   font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
+  color: var(--board-text-muted);
   letter-spacing: 0.5px;
-  color: var(--board-text-secondary);
-  padding-left: 2px;
 }
 
+.inspector-section-mixed {
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  background-color: rgba(255, 255, 255, 0.1);
+  color: var(--board-text-muted);
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+
+/* Color Grid */
 .inspector-color-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -233,22 +254,26 @@
   width: 100%;
   aspect-ratio: 1;
   border-radius: 8px;
-  border: 1px solid rgba(255,255,255,0.1);
+  border: 1.5px solid transparent;
   cursor: pointer;
-  transition: transform 0.1s, box-shadow 0.1s;
+  transition: all 0.2s ease;
+  padding: 0;
 }
 
 .inspector-swatch:hover {
-  transform: scale(1.05);
+  transform: scale(1.1);
 }
 
 .inspector-swatch.is-active {
-  box-shadow: 0 0 0 2px var(--board-shell-bg), 0 0 0 4px var(--board-accent);
+  border-color: var(--board-accent, #9d4edd);
+  box-shadow: 0 0 0 1px var(--board-shell-bg), 0 0 0 3px var(--board-accent, #9d4edd);
+  transform: scale(1.05);
 }
 
+/* Segmented Control */
 .inspector-segmented-control {
   display: flex;
-  background: rgba(0,0,0,0.2);
+  background-color: rgba(255, 255, 255, 0.05);
   border-radius: 8px;
   padding: 2px;
   gap: 2px;
@@ -256,27 +281,26 @@
 
 .inspector-segment {
   flex: 1;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: 28px;
   background: transparent;
   border: none;
-  border-radius: 6px;
-  color: var(--board-text-secondary);
-  font-size: 12px;
+  color: var(--board-text-primary);
+  font-size: 11px;
   font-weight: 500;
+  padding: 6px 4px;
+  border-radius: 6px;
   cursor: pointer;
-  transition: background 0.15s, color 0.15s;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .inspector-segment:hover {
-  color: var(--board-text-primary);
-  background: rgba(255,255,255,0.05);
+  background-color: rgba(255, 255, 255, 0.1);
 }
 
 .inspector-segment.is-active {
-  background: var(--board-shell-bg-hover);
+  background-color: rgba(255, 255, 255, 0.15);
   color: var(--board-text-primary);
-  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
 }
