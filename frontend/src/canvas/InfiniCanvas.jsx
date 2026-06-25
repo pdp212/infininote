@@ -311,6 +311,8 @@ export default function InfiniCanvas({ boardId }) {
           DebugMenu: null,
           MenuPanel: null,
           TopPanel: null,
+          HelperButtons: null,
+          Minimap: null,
           InFrontOfTheCanvas: AppOverlay,
         }}
       >

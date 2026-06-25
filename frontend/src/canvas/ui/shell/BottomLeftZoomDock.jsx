@@ -39,9 +39,10 @@ export default function BottomLeftZoomDock() {
         style={{ 
           fontSize: '13px', 
           fontWeight: 500, 
-          minWidth: '40px', 
+          minWidth: '44px', 
           textAlign: 'center',
-          cursor: 'pointer' 
+          cursor: 'pointer',
+          fontVariantNumeric: 'tabular-nums'
         }}
         onClick={fitToScreen}
         title="Fit to screen"

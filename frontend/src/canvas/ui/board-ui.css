@@ -77,6 +77,7 @@
 
 .board-right-inspector {
   width: 176px;
+  padding: 8px;
   /* Removed absolute top/right positioning since it's now in a flex column */
 }
 
