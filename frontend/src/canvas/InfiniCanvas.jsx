@@ -10,7 +10,7 @@
 import { useCallback, useRef, useEffect, useState } from 'react'
 import { Tldraw, useEditor, DefaultSharePanel } from '@tldraw/tldraw'
 import { useNavigate } from 'react-router-dom'
-import { ThemeToggle, StatusBadge, SaveIndicator } from '../components/Header'
+import { StatusBadge, SaveIndicator } from '../components/Header'
 import '@tldraw/tldraw/tldraw.css'
 import { AssetRecordType } from '@tldraw/tlschema'
 import { useWebSocket } from './useWebSocket'
@@ -113,12 +113,7 @@ function CanvasInner({ initialSnapshot, boardId }) {
   const isInitialized = useRef(false)
   const isSyncing = useRef(false)
 
-  // Sync theme
-  useEffect(() => {
-    if (editor) {
-      editor.user.updateUserPreferences({ colorScheme: theme === 'dark' ? 'dark' : 'light' })
-    }
-  }, [editor, theme])
+  // Removed forced theme sync to allow Tldraw to manage its own theme via Preferences Menu
 
   // Load snapshot từ server — chỉ áp document records, giữ nguyên UI state local
   useEffect(() => {
@@ -287,7 +282,6 @@ function CustomSharePanel() {
     <div style={{ pointerEvents: 'all', display: 'flex', alignItems: 'center', gap: '12px', paddingRight: '8px' }}>
       <SaveIndicator />
       <StatusBadge />
-      <ThemeToggle />
       <button 
         onClick={() => navigate('/')} 
         style={{ 
