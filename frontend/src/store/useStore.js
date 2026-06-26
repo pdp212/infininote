@@ -37,8 +37,8 @@ const useStore = create((set) => ({
   })),
 
   // Board loading — single state machine
-  // Phases: 'idb_rescue' → 'mounting' → 'ready' | 'error'
-  boardPhase: 'idb_rescue',
+  // Phases: 'mounting' → 'ready' | 'error'
+  boardPhase: 'mounting',
   boardPhaseError: null,
   setBoardPhase: (phase, errorMsg = null) => set({ boardPhase: phase, boardPhaseError: errorMsg }),
 

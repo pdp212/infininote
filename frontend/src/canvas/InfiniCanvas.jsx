@@ -225,10 +225,66 @@ function CanvasInner({ boardId }) {
   const setBoardPhase = useStore(s => s.setBoardPhase)
 
   useEffect(() => {
-    if (editor) {
-      console.log('[BOOT] Editor mounted — CanvasInner ready, boardId:', boardId)
-      // Single authoritative transition: mounting → ready
-      setBoardPhase('ready')
+    if (!editor) return
+    console.log('[BOOT] Editor mounted — boardId:', boardId)
+
+    // 1. Transition to ready immediately
+    setBoardPhase('ready')
+
+    // 2. Restore camera from localStorage (per-board)
+    try {
+      const saved = localStorage.getItem(`infininote-camera-${boardId}`)
+      if (saved) {
+        const cam = JSON.parse(saved)
+        editor.setCamera(cam, { immediate: true })
+      }
+    } catch (_) {}
+
+    // 3. Save camera on every session-scope change (debounced)
+    let cameraTimer = null
+    const unsubCamera = editor.store.listen(() => {
+      clearTimeout(cameraTimer)
+      cameraTimer = setTimeout(() => {
+        try {
+          const cam = editor.getCamera()
+          localStorage.setItem(`infininote-camera-${boardId}`, JSON.stringify(cam))
+        } catch (_) {}
+      }, 500)
+    }, { scope: 'session', source: 'all' })
+
+    // 4. Background IDB sanitizer — runs AFTER editor is ready, never blocks load
+    setTimeout(async () => {
+      try {
+        const persistenceKey = `infininote-board-${boardId}`
+        const req = indexedDB.open('tldraw')
+        req.onsuccess = (e) => {
+          const db = e.target.result
+          if (!db.objectStoreNames.contains(persistenceKey)) return
+          const tx = db.transaction(persistenceKey, 'readwrite')
+          const store = tx.objectStore(persistenceKey)
+          const getAll = store.getAll()
+          getAll.onsuccess = () => {
+            let fixed = 0
+            for (const record of getAll.result) {
+              if (record?.typeName === 'shape') {
+                const clean = sanitizeShapeForTldraw(record)
+                if (JSON.stringify(clean) !== JSON.stringify(record)) {
+                  store.put(clean)
+                  fixed++
+                }
+              }
+            }
+            if (fixed > 0) console.warn(`[IDB] Background rescued ${fixed} corrupted shapes`)
+          }
+        }
+      } catch (err) {
+        console.warn('[IDB] Background sanitizer failed (non-blocking):', err)
+      }
+    }, 2000)
+
+    return () => {
+      clearTimeout(cameraTimer)
+      unsubCamera()
     }
   }, [editor, boardId, setBoardPhase])
 
@@ -254,24 +310,35 @@ function CanvasInner({ boardId }) {
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || editor?.getEditingShapeId()) return
-      
-      if (e.shiftKey) {
-        if (e.key.toLowerCase() === 'n') {
-          e.preventDefault()
-          createQuickNote()
-        } else if (e.key.toLowerCase() === 't') {
-          e.preventDefault()
-          createQuickText()
-        } else if (e.key.toLowerCase() === 'j') {
-          e.preventDefault()
-          const today = getOrCreateTodayJournalBoard()
-          window.location.href = `/board/${today.id}`
-        }
+      // Ctrl+N / Cmd+N — Quick Note
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'n') {
+        e.preventDefault()
+        createQuickNote()
+        return
+      }
+      // Ctrl+Shift+N / Cmd+Shift+N — Quick Text
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'n') {
+        e.preventDefault()
+        createQuickText()
+        return
+      }
+      // Ctrl+J / Cmd+J — Today's Journal
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'j') {
+        e.preventDefault()
+        getOrCreateTodayJournalBoard().then(board => {
+          if (board?.id && board.id !== boardId) window.location.href = `/board/${board.id}`
+        }).catch(() => {})
+        return
+      }
+      // Legacy Shift+N / Shift+T aliases
+      if (e.shiftKey && !e.ctrlKey && !e.metaKey) {
+        if (e.key.toLowerCase() === 'n') { e.preventDefault(); createQuickNote() }
+        else if (e.key.toLowerCase() === 't') { e.preventDefault(); createQuickText() }
       }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [editor, createQuickNote, createQuickText])
+  }, [editor, createQuickNote, createQuickText, boardId])
 
   // Đăng ký asset handler: tldraw v2.4.x gọi với (info) không phải (asset, file)
   // info = { type: 'file', file: File } → phải trả về TLAsset hoặc null
@@ -319,94 +386,12 @@ function CanvasInner({ boardId }) {
 // ── Main Component ──────────────────────────────────────────────
 export default function InfiniCanvas({ boardId }) {
   const initialSnapshot = useStore(s => s.initialSnapshot)
-  // Single state machine — store owns all phases: idb_rescue → mounting → ready | error
+  // Single state machine — store owns all phases: mounting → ready | error
   const boardPhase = useStore(s => s.boardPhase)
   const boardPhaseError = useStore(s => s.boardPhaseError)
   const setBoardPhase = useStore(s => s.setBoardPhase)
 
-  // Best-effort local IDB rescue — runs BEFORE Tldraw mounts
-  useEffect(() => {
-    if (!boardId) return
-    console.log(`[BOOT] Start — boardId=${boardId} phase=${boardPhase}`)
-    
-    // Safety valve: never block more than 3s waiting for IDB
-    const safetyTimer = setTimeout(() => {
-      console.warn('[BOOT] Safety valve fired (3s) — forcing mounting')
-      setBoardPhase(prev => prev === 'idb_rescue' ? 'mounting' : prev)
-    }, 3000)
-
-    const tryRescue = async () => {
-      try {
-        console.log('[BOOT] IDB rescue: opening tldraw database...')
-        const persistenceKey = `infininote-board-${boardId}`
-        const req = indexedDB.open('tldraw')
-        
-        req.onsuccess = (e) => {
-          const db = e.target.result
-          console.log('[BOOT] IDB open OK — stores:', [...db.objectStoreNames])
-          if (!db.objectStoreNames.contains(persistenceKey)) {
-            console.log('[BOOT] No local store found — transitioning idb_rescue → mounting')
-            clearTimeout(safetyTimer)
-            setBoardPhase('mounting')
-            return
-          }
-          
-          const tx = db.transaction(persistenceKey, 'readwrite')
-          const store = tx.objectStore(persistenceKey)
-          const getAll = store.getAll()
-          
-          getAll.onsuccess = () => {
-            console.log(`[BOOT] IDB getAll OK — ${getAll.result.length} records`)
-            let fixed = 0
-            for (const record of getAll.result) {
-              if (record && record.typeName === 'shape') {
-                const clean = sanitizeShapeForTldraw(record)
-                if (JSON.stringify(clean) !== JSON.stringify(record)) {
-                  store.put(clean)
-                  fixed++
-                }
-              }
-            }
-            if (fixed > 0) console.warn(`[BOOT] Rescued ${fixed} corrupted shapes in IndexedDB!`)
-            else console.log('[BOOT] IDB clean — no shape fixes needed')
-          }
-
-          getAll.onerror = () => {
-            console.warn('[BOOT] IDB getAll error — continuing anyway')
-          }
-          
-          tx.oncomplete = () => {
-            console.log('[BOOT] IDB tx complete — idb_rescue → mounting')
-            clearTimeout(safetyTimer)
-            setBoardPhase('mounting')
-          }
-          tx.onerror = (ev) => {
-            console.warn('[BOOT] IDB Tx error — continuing:', ev.target?.error)
-            clearTimeout(safetyTimer)
-            setBoardPhase('mounting')
-          }
-        }
-        
-        req.onerror = (ev) => {
-          console.warn('[BOOT] IDB open error — continuing:', ev.target?.error)
-          clearTimeout(safetyTimer)
-          setBoardPhase('mounting')
-        }
-
-        req.onblocked = () => {
-          console.warn('[BOOT] IDB blocked (another tab has the DB open). Safety valve will fire.')
-        }
-      } catch (err) {
-        console.warn('[BOOT] Rescue threw exception:', err)
-        clearTimeout(safetyTimer)
-        setBoardPhase('mounting')
-      }
-    }
-    
-    tryRescue()
-    return () => clearTimeout(safetyTimer)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [boardId])
+  // (The IDB rescue logic has been moved to a non-blocking background task in CanvasInner)
 
   const handleClearCache = () => {
     try {
@@ -442,12 +427,8 @@ export default function InfiniCanvas({ boardId }) {
     )
   }
 
-  // Phase: idb_rescue — null render; Board.jsx overlay shows the spinner
   // Phase: mounting — Tldraw renders; CanvasInner transitions to 'ready' on editor mount
-  if (boardPhase === 'idb_rescue') {
-    console.log('[BOOT] boardPhase=idb_rescue — waiting for IDB rescue to complete')
-    return null
-  }
+  // No more idb_rescue check here
 
   console.log(`[BOOT] boardPhase=${boardPhase} — rendering Tldraw`)
   return (
