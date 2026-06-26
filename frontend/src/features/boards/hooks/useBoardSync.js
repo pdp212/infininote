@@ -228,6 +228,39 @@ export function useBoardSync(editor, boardId) {
     }
   }, 600)
 
+  const pendingDeltas = useRef({ added: {}, updated: {}, removed: [] })
+
+  const flushDeltas = useDebounce(() => {
+    const changes = pendingDeltas.current
+    if (!Object.keys(changes.added).length && !Object.keys(changes.updated).length && changes.removed.length === 0) return
+
+    if (!useStore.getState().isOnline) {
+       updateSyncState({ syncState: 'offline_dirty' })
+       return
+    }
+
+    const app_meta = {
+      boardMeta: boardMetaStore.getBoardMeta(boardId),
+      shapeMeta: shapeMetaStore.getRegistry(boardId)
+    }
+
+    const sent = sendMessage({ 
+      type: 'DELTA', 
+      changes: changes,
+      baseRevision: baseRevision.current,
+      app_meta
+    })
+    
+    if (!sent) {
+      syncToServer(editor.store.getSnapshot('document'))
+    } else {
+      updateSyncState({ syncState: 'saving_remote', lastSyncAttemptAt: Date.now() })
+    }
+
+    // Reset pending
+    pendingDeltas.current = { added: {}, updated: {}, removed: [] }
+  }, 500)
+
   // Phase 4: Lắng nghe store changes từ local để đẩy lên server
   useEffect(() => {
     if (!editor) return
@@ -238,56 +271,39 @@ export function useBoardSync(editor, boardId) {
         if (isSyncing.current || entry.source !== 'user') return
 
         const changes = entry.changes
-        const filtered = { added: {}, updated: {}, removed: [] }
+        let hasChanges = false
         
         for (const [id, rec] of Object.entries(changes.added)) {
           if (!SESSION_TYPES.has(rec.typeName)) {
-            filtered.added[id] = sanitizeSnapshot({ store: { [id]: rec } }).store[id]
+            pendingDeltas.current.added[id] = sanitizeSnapshot({ store: { [id]: rec } }).store[id]
+            hasChanges = true
           }
         }
         for (const [id, recs] of Object.entries(changes.updated)) {
           if (!SESSION_TYPES.has(recs[1].typeName)) {
-            filtered.updated[id] = sanitizeSnapshot({ store: { [id]: recs[1] } }).store[id]
+            pendingDeltas.current.updated[id] = sanitizeSnapshot({ store: { [id]: recs[1] } }).store[id]
+            hasChanges = true
           }
         }
         for (const [id, rec] of Object.entries(changes.removed)) {
-          if (!SESSION_TYPES.has(rec.typeName)) filtered.removed.push(id)
+          if (!SESSION_TYPES.has(rec.typeName)) {
+            pendingDeltas.current.removed.push(id)
+            hasChanges = true
+          }
         }
 
-        if (Object.keys(filtered.added).length || Object.keys(filtered.updated).length || filtered.removed.length) {
+        if (hasChanges) {
           updateSyncState({ 
             syncState: 'saving_local', 
             hasPendingLocalChanges: true, 
             lastLocalEditAt: Date.now() 
           })
-
-          if (!useStore.getState().isOnline) {
-             updateSyncState({ syncState: 'offline_dirty' })
-             return
-          }
-
-          const app_meta = {
-            boardMeta: boardMetaStore.getBoardMeta(boardId),
-            shapeMeta: shapeMetaStore.getRegistry(boardId)
-          }
-
-          const sent = sendMessage({ 
-            type: 'DELTA', 
-            changes: filtered,
-            baseRevision: baseRevision.current,
-            app_meta
-          })
-          
-          if (!sent) {
-            syncToServer(editor.store.getSnapshot('document'))
-          } else {
-            updateSyncState({ syncState: 'saving_remote', lastSyncAttemptAt: Date.now() })
-          }
+          flushDeltas()
         }
       },
       { scope: 'document', source: 'user' }
     )
-  }, [editor, sendMessage, syncToServer, updateSyncState])
+  }, [editor, sendMessage, syncToServer, updateSyncState, flushDeltas, boardId])
 
   // Lắng nghe force reload
   useEffect(() => {

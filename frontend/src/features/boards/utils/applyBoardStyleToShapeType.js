@@ -57,6 +57,14 @@ export function applySafeStyleToNextShapes(editor, styleType, value) {
     } else if (styleType === 'fill') {
       editor.setStyleForNextShapes(DefaultFillStyle, value)
     }
+
+    // Phase 10: Save to global localStorage
+    try {
+      const globalStyles = JSON.parse(localStorage.getItem('infininote-global-styles') || '{}')
+      globalStyles[styleType] = value
+      localStorage.setItem('infininote-global-styles', JSON.stringify(globalStyles))
+    } catch (_) {}
+
   } catch (e) {
     console.warn(`[applyBoardStyle] Failed to apply next style: ${e.message}`)
   }

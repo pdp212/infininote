@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Header from '../components/Header'
-import { getOrCreateTodayJournalBoard, getOrCreateYesterdayJournalBoard } from '../features/journal/journalBoardService'
+import { getOrCreateTodayJournalBoard } from '../features/journal/journalBoardService'
 
 export default function Dashboard() {
   const navigate = useNavigate()
@@ -46,7 +46,7 @@ export default function Dashboard() {
 
   const createNewBoard = () => {
     const id = `board_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
-    const newBoard = { id, title: 'Bảng mới', lastAccessed: Date.now() }
+    const newBoard = { id, title: 'Bảng trống', lastAccessed: Date.now() }
     
     const updated = [newBoard, ...boards]
     setBoards(updated)
@@ -73,7 +73,7 @@ export default function Dashboard() {
   const renameBoard = (e, board) => {
     e.stopPropagation()
     setOpenMenuId(null)
-    const newTitle = window.prompt('Nhập tên mới cho bảng:', board.title)
+    const newTitle = window.prompt('Nhập tên mới:', board.title)
     if (newTitle && newTitle.trim()) {
       const updated = boards.map(b => b.id === board.id ? { ...b, title: newTitle.trim() } : b)
       setBoards(updated)
@@ -84,7 +84,7 @@ export default function Dashboard() {
   const deleteBoard = (e, board) => {
     e.stopPropagation()
     setOpenMenuId(null)
-    if (window.confirm(`Bạn có chắc chắn muốn xóa bảng "${board.title}"?`)) {
+    if (window.confirm(`Xóa "${board.title}"?`)) {
       const updated = boards.filter(b => b.id !== board.id)
       setBoards(updated)
       localStorage.setItem('infininote-recent-boards', JSON.stringify(updated))
@@ -94,86 +94,91 @@ export default function Dashboard() {
   return (
     <>
       <Header />
-      <div className="dashboard-container">
-        <div className="dashboard-header">
-          <div className="dashboard-header-text">
-            <h2>Nhật ký & Ghi chú</h2>
-            <p>{boards.length} bảng • Cập nhật gần đây</p>
-          </div>
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <button className="create-btn" onClick={() => {
+      <div className="dashboard-container" style={{ maxWidth: '800px', margin: '0 auto', paddingTop: '40px', paddingBottom: '40px' }}>
+        
+        {/* Main CTA */}
+        <div style={{ display: 'flex', gap: '12px', marginBottom: '40px' }}>
+          <button 
+            onClick={() => {
               const board = getOrCreateTodayJournalBoard()
               navigate(`/board/${board.id}`)
-            }} style={{ background: '#2bd67b', color: '#000', fontWeight: 'bold' }}>
-              + Mở Journal hôm nay
-            </button>
-            <button className="create-btn" onClick={() => {
-              const board = getOrCreateYesterdayJournalBoard()
-              navigate(`/board/${board.id}`)
-            }} style={{ background: 'transparent', border: '1px solid #555', color: '#ccc' }}>
-              Hôm qua
-            </button>
-            <button className="create-btn" onClick={createNewBoard} style={{ background: '#333' }}>
-              + Bảng trống
-            </button>
-          </div>
+            }} 
+            style={{ 
+              background: '#fff', color: '#000', fontWeight: '500', 
+              padding: '12px 24px', borderRadius: '8px', border: 'none', 
+              cursor: 'pointer', fontSize: '15px' 
+            }}
+          >
+            + Journal Today
+          </button>
+          <button 
+            onClick={createNewBoard} 
+            style={{ 
+              background: 'transparent', color: '#ccc', fontWeight: '500', 
+              padding: '12px 24px', borderRadius: '8px', border: '1px solid #333', 
+              cursor: 'pointer', fontSize: '15px' 
+            }}
+          >
+            + New Board
+          </button>
         </div>
 
-        {/* --- Recent Journals Section --- */}
-        <div style={{ marginBottom: '32px' }}>
-          <h3 style={{ fontSize: '14px', color: '#aaa', textTransform: 'uppercase', marginBottom: '16px' }}>Nhật ký gần đây</h3>
-          <div className="boards-grid">
+        {/* Recent Journals */}
+        <div style={{ marginBottom: '40px' }}>
+          <h3 style={{ fontSize: '13px', color: '#666', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Recent</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {(() => {
-              const journals = boards.filter(b => b.boardType === 'journal')
-              if (journals.length === 0) return <p style={{ color: '#666', fontSize: '13px' }}>Chưa có nhật ký nào.</p>
-              return journals.slice(0, 4).map(board => (
-                <div key={board.id} className="board-card" onClick={() => openBoard(board)} style={{ background: 'rgba(43, 214, 123, 0.05)', border: '1px solid rgba(43, 214, 123, 0.2)' }}>
-                  <div className="board-card-icon" style={{ background: 'transparent' }}>📓</div>
-                  <div className="board-card-info">
-                    <h3 style={{ color: '#2bd67b' }}>{board.title}</h3>
-                    <p>{new Date(board.lastAccessed).toLocaleString('vi-VN')}</p>
+              const journals = boards.filter(b => b.boardType === 'journal').slice(0, 5)
+              if (journals.length === 0) return <div style={{ color: '#555', fontSize: '14px' }}>No recent journals.</div>
+              return journals.map(board => (
+                <div key={board.id} onClick={() => openBoard(board)} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: '#1a1a1a', borderRadius: '8px', cursor: 'pointer', border: '1px solid transparent' }} onMouseOver={e => e.currentTarget.style.borderColor = '#333'} onMouseOut={e => e.currentTarget.style.borderColor = 'transparent'}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <span style={{ fontSize: '16px', opacity: 0.5 }}>📓</span>
+                    <span style={{ color: '#e0e0e0', fontSize: '15px', fontWeight: 500 }}>{board.title}</span>
                   </div>
+                  <span style={{ color: '#666', fontSize: '13px' }}>{new Date(board.lastAccessed).toLocaleDateString()}</span>
                 </div>
               ))
             })()}
           </div>
         </div>
 
-        <h3 style={{ fontSize: '14px', color: '#aaa', textTransform: 'uppercase', marginBottom: '16px' }}>Tất cả các bảng</h3>
-      <div className="boards-grid">
-        {boards.length === 0 ? (
-          <div className="empty-state">
-            <p>Chưa có bảng nào. Hãy tạo một bảng mới để bắt đầu!</p>
-          </div>
-        ) : (
-          boards.map(board => (
-            <div key={board.id} className="board-card" onClick={() => openBoard(board)}>
-              <div className="board-card-icon">🖼️</div>
-              <div className="board-card-info">
-                <h3>{board.title}</h3>
-                <p>Cập nhật lần cuối: {new Date(board.lastAccessed).toLocaleString('vi-VN')}</p>
-                <div className="board-card-meta">
-                  <span style={{ color: '#10B981' }}>●</span> Đã đồng bộ
-                </div>
-              </div>
-              <div className="board-card-actions" onClick={(e) => toggleMenu(e, board.id)}>
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#999' }}>
-                  <circle cx="12" cy="12" r="1"></circle>
-                  <circle cx="19" cy="12" r="1"></circle>
-                  <circle cx="5" cy="12" r="1"></circle>
-                </svg>
-                {openMenuId === board.id && (
-                  <div className="card-context-menu">
-                    <button onClick={(e) => renameBoard(e, board)}>Đổi tên</button>
-                    <button onClick={(e) => deleteBoard(e, board)} className="danger">Xóa bảng</button>
+        {/* All Boards */}
+        <div>
+          <h3 style={{ fontSize: '13px', color: '#666', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Boards</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {boards.filter(b => b.boardType !== 'journal').length === 0 ? (
+              <div style={{ color: '#555', fontSize: '14px' }}>No boards.</div>
+            ) : (
+              boards.filter(b => b.boardType !== 'journal').map(board => (
+                <div key={board.id} onClick={() => openBoard(board)} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: '#1a1a1a', borderRadius: '8px', cursor: 'pointer', border: '1px solid transparent' }} onMouseOver={e => e.currentTarget.style.borderColor = '#333'} onMouseOut={e => e.currentTarget.style.borderColor = 'transparent'}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <span style={{ fontSize: '16px', opacity: 0.5 }}>📄</span>
+                    <span style={{ color: '#e0e0e0', fontSize: '15px', fontWeight: 500 }}>{board.title}</span>
                   </div>
-                )}
-              </div>
-            </div>
-          ))
-        )}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                    <span style={{ color: '#666', fontSize: '13px' }}>{new Date(board.lastAccessed).toLocaleDateString()}</span>
+                    
+                    <div style={{ position: 'relative' }} onClick={(e) => toggleMenu(e, board.id)}>
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#666', cursor: 'pointer' }}>
+                        <circle cx="12" cy="12" r="1"></circle>
+                        <circle cx="19" cy="12" r="1"></circle>
+                        <circle cx="5" cy="12" r="1"></circle>
+                      </svg>
+                      {openMenuId === board.id && (
+                        <div style={{ position: 'absolute', right: 0, top: '24px', background: '#222', border: '1px solid #333', borderRadius: '6px', padding: '4px', zIndex: 10, minWidth: '120px', boxShadow: '0 4px 12px rgba(0,0,0,0.5)' }}>
+                          <button onClick={(e) => renameBoard(e, board)} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 12px', background: 'transparent', border: 'none', color: '#e0e0e0', cursor: 'pointer', fontSize: '13px', borderRadius: '4px' }}>Đổi tên</button>
+                          <button onClick={(e) => deleteBoard(e, board)} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 12px', background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '13px', borderRadius: '4px' }}>Xóa</button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
       </div>
-    </div>
     </>
   )
 }

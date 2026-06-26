@@ -1,81 +1,65 @@
 import React, { useState } from 'react'
 import useStore from '../../../store/useStore'
-import { useBoardActions } from '../hooks/useBoardActions'
 import SyncDetailsPopover from './SyncDetailsPopover'
 
 function SyncBadgeCluster({ onClick }) {
   const syncState = useStore(s => s.syncState)
   const isOnline = useStore(s => s.isOnline)
 
-  let badge1 = ''
-  let badge2 = ''
+  let label = ''
   let dotColor = '#ffcc66' // warning default
-  
-  const networkStr = isOnline ? 'Online' : 'Offline'
+  let isSaving = false
 
   switch (syncState) {
     case 'hydrating_local':
     case 'checking_server':
-      badge1 = 'Đồng bộ...'
-      badge2 = networkStr
+      label = 'Đồng bộ...'
       dotColor = isOnline ? '#2bd67b' : '#ffcc66'
+      isSaving = true
       break
     case 'saving_local':
     case 'saving_remote':
-      badge1 = 'Đang lưu...'
-      badge2 = networkStr
+      label = 'Saving...'
       dotColor = isOnline ? '#2bd67b' : '#ffcc66'
+      isSaving = true
       break
     case 'offline_dirty':
-      badge1 = 'Đã lưu trên máy'
-      badge2 = 'Chưa đồng bộ'
+      label = 'Đã lưu cục bộ'
       dotColor = '#ffcc66'
       break
     case 'synced':
-      badge1 = 'Đã đồng bộ'
-      badge2 = 'Online'
-      dotColor = '#2bd67b'
+      label = 'Saved'
+      dotColor = '#ccc' // subtle color for saved state
       break
     case 'conflict':
-      badge1 = 'Xung đột dữ liệu'
-      badge2 = 'Cần xử lý'
+      label = 'Xung đột'
       dotColor = '#ef4444' // red
       break
     case 'error':
-      badge1 = 'Lỗi lưu'
-      badge2 = 'Thử lại'
+      label = 'Lỗi'
       dotColor = '#ef4444' // red
       break
     default:
-      badge1 = 'Đã đồng bộ'
-      badge2 = 'Online'
-      dotColor = '#2bd67b'
+      label = 'Saved'
+      dotColor = '#ccc'
   }
 
   return (
-    <div className="board-status-badge-group" onClick={onClick} style={{ display: 'flex', gap: '8px', cursor: 'pointer', alignItems: 'center' }}>
-      <div className="board-status-badge">
-        {badge1}
-      </div>
-      <div className="board-status-badge">
-        <span style={{ color: dotColor, marginRight: '4px' }}>●</span>
-        {badge2}
-      </div>
+    <div className="board-status-badge-group" onClick={onClick} style={{ display: 'flex', gap: '6px', cursor: 'pointer', alignItems: 'center', background: 'var(--color-panel)', border: '1px solid var(--color-border)', borderRadius: '6px', padding: '4px 8px', fontSize: '13px', color: '#aaa', fontWeight: 500 }}>
+      <span style={{ color: dotColor, fontSize: '10px' }}>
+        {isSaving ? '●' : '✔'}
+      </span>
+      <span>{label}</span>
     </div>
   )
 }
 
 export default function TopRightStatusCluster() {
-  const { goToDashboard } = useBoardActions()
   const [showPopover, setShowPopover] = useState(false)
 
   return (
     <div className="board-top-right-status" style={{ position: 'relative' }}>
       <SyncBadgeCluster onClick={() => setShowPopover(!showPopover)} />
-      <button className="board-back-btn" onClick={goToDashboard}>
-        Quay lại
-      </button>
-
       {showPopover && (
         <SyncDetailsPopover onClose={() => setShowPopover(false)} />
       )}

@@ -8,7 +8,18 @@
  *         của thiết bị khác (camera, tool selection, color)
  */
 import { useCallback, useRef, useEffect, useState } from 'react'
-import { Tldraw, useEditor, DefaultSharePanel } from '@tldraw/tldraw'
+import { 
+  Tldraw, 
+  useEditor, 
+  DefaultSharePanel,
+  DefaultColorStyle,
+  DefaultSizeStyle,
+  DefaultFontStyle,
+  DefaultHorizontalAlignStyle,
+  DefaultTextAlignStyle,
+  DefaultDashStyle,
+  DefaultFillStyle
+} from '@tldraw/tldraw'
 import { useNavigate } from 'react-router-dom'
 import '@tldraw/tldraw/tldraw.css'
 import BoardScreen from './ui/BoardScreen'
@@ -238,6 +249,20 @@ function CanvasInner({ boardId }) {
         const cam = JSON.parse(saved)
         editor.setCamera(cam, { immediate: true })
       }
+    } catch (_) {}
+
+    // 2.5 Restore global styles
+    try {
+      const globalStyles = JSON.parse(localStorage.getItem('infininote-global-styles') || '{}')
+      if (globalStyles.color) editor.setStyleForNextShapes(DefaultColorStyle, globalStyles.color)
+      if (globalStyles.size) editor.setStyleForNextShapes(DefaultSizeStyle, globalStyles.size)
+      if (globalStyles.font) editor.setStyleForNextShapes(DefaultFontStyle, globalStyles.font)
+      if (globalStyles.align) {
+        editor.setStyleForNextShapes(DefaultHorizontalAlignStyle, globalStyles.align)
+        editor.setStyleForNextShapes(DefaultTextAlignStyle, globalStyles.align)
+      }
+      if (globalStyles.dash) editor.setStyleForNextShapes(DefaultDashStyle, globalStyles.dash)
+      if (globalStyles.fill) editor.setStyleForNextShapes(DefaultFillStyle, globalStyles.fill)
     } catch (_) {}
 
     // 3. Save camera on every session-scope change (debounced)
