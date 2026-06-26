@@ -12,8 +12,8 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Uplo
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
-from database import get_board, upsert_board, get_client, apply_delta, get_boards_summary
-from models import SnapshotPayload, ImageUploadResponse, BoardSummary
+from database import get_board, upsert_board, get_client, apply_delta, get_boards_summary, rename_board, delete_board_by_id
+from models import SnapshotPayload, ImageUploadResponse, BoardSummary, BoardRenamePayload
 
 load_dotenv()
 
@@ -148,6 +148,25 @@ async def save_board(board_id: str, payload: SnapshotPayload):
             }
         )
     return {"status": "saved", "revision": res["revision"]}
+
+@app.patch("/api/boards/{board_id}")
+async def update_board_title(board_id: str, payload: BoardRenamePayload):
+    logger.info(f"[API] PATCH board: {board_id} -> {payload.title}")
+    success = await rename_board(board_id, payload.title)
+    if not success:
+        raise HTTPException(status_code=404, detail="Board not found")
+    return {"status": "success", "title": payload.title}
+
+@app.delete("/api/boards/{board_id}")
+async def remove_board(board_id: str):
+    logger.info(f"[API] DELETE board: {board_id}")
+    success = await delete_board_by_id(board_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Board not found")
+        
+    # Broadcast deletion to clients
+    await manager.broadcast(json.dumps({"type": "BOARD_DELETED"}), board_id)
+    return {"status": "success"}
 
 @app.post("/api/board")
 async def save_board_legacy(payload: SnapshotPayload):

@@ -171,6 +171,9 @@ export function useBoardSync(editor, boardId) {
         hasPendingLocalChanges: false,
         lastSyncError: null
       })
+    } else if (msg.type === 'BOARD_DELETED') {
+      alert('Bảng này đã bị xóa từ một thiết bị khác.')
+      window.location.href = '/'
     }
   }, [editor, applyDocRecords, updateSyncState, handleConflict, boardId, mergeRemoteMeta])
 

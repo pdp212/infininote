@@ -70,24 +70,56 @@ export default function Dashboard() {
     setOpenMenuId(prev => prev === id ? null : id)
   }
 
-  const renameBoard = (e, board) => {
+  const renameBoard = async (e, board) => {
     e.stopPropagation()
     setOpenMenuId(null)
     const newTitle = window.prompt('Nhập tên mới:', board.title)
-    if (newTitle && newTitle.trim()) {
-      const updated = boards.map(b => b.id === board.id ? { ...b, title: newTitle.trim() } : b)
-      setBoards(updated)
-      localStorage.setItem('infininote-recent-boards', JSON.stringify(updated))
+    if (newTitle && newTitle.trim() && newTitle !== board.title) {
+      console.log('[BOARD] Rename clicked')
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+      try {
+        const res = await fetch(`${API_URL.replace(/\/$/, '')}/api/boards/${board.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title: newTitle.trim() })
+        })
+        if (res.ok) {
+          console.log('[BOARD] PATCH success')
+          const updated = boards.map(b => b.id === board.id ? { ...b, title: newTitle.trim() } : b)
+          setBoards(updated)
+          localStorage.setItem('infininote-recent-boards', JSON.stringify(updated))
+        } else {
+          alert('Lỗi khi đổi tên bảng')
+        }
+      } catch (err) {
+        console.error('Rename error:', err)
+        alert('Lỗi kết nối khi đổi tên')
+      }
     }
   }
 
-  const deleteBoard = (e, board) => {
+  const deleteBoard = async (e, board) => {
     e.stopPropagation()
     setOpenMenuId(null)
     if (window.confirm(`Xóa "${board.title}"?`)) {
-      const updated = boards.filter(b => b.id !== board.id)
-      setBoards(updated)
-      localStorage.setItem('infininote-recent-boards', JSON.stringify(updated))
+      console.log('[BOARD] Delete clicked')
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+      try {
+        const res = await fetch(`${API_URL.replace(/\/$/, '')}/api/boards/${board.id}`, {
+          method: 'DELETE'
+        })
+        if (res.ok) {
+          console.log('[BOARD] DELETE success')
+          const updated = boards.filter(b => b.id !== board.id)
+          setBoards(updated)
+          localStorage.setItem('infininote-recent-boards', JSON.stringify(updated))
+        } else {
+          alert('Lỗi khi xóa bảng')
+        }
+      } catch (err) {
+        console.error('Delete error:', err)
+        alert('Lỗi kết nối khi xóa bảng')
+      }
     }
   }
 
