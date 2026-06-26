@@ -85,9 +85,16 @@ export default function Dashboard() {
     e.stopPropagation()
     setOpenMenuId(null)
     if (window.confirm(`Bạn có chắc chắn muốn xóa bảng "${board.title}"?`)) {
+      // Xoá trên giao diện và local storage trước để phản hồi nhanh (Optimistic Update)
       const updated = boards.filter(b => b.id !== board.id)
       setBoards(updated)
       localStorage.setItem('infininote-recent-boards', JSON.stringify(updated))
+
+      // Gọi API xoá trên server
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+      fetch(`${API_URL.replace(/\/$/, '')}/api/boards/${board.id}`, {
+        method: 'DELETE'
+      }).catch(err => console.warn('Lỗi khi xoá bảng trên server:', err))
     }
   }
 
