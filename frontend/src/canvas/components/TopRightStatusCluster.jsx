@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
-import useStore from '../../../store/useStore'
-import { useBoardActions } from '../hooks/useBoardActions'
+import { useNavigate } from 'react-router-dom'
+import useStore from '../../store/useStore'
 import SyncDetailsPopover from './SyncDetailsPopover'
 
 function SyncBadgeCluster({ onClick }) {
@@ -66,7 +66,8 @@ function SyncBadgeCluster({ onClick }) {
 }
 
 export default function TopRightStatusCluster() {
-  const { goToDashboard } = useBoardActions()
+  const navigate = useNavigate()
+  const goToDashboard = () => navigate('/')
   const [showPopover, setShowPopover] = useState(false)
 
   return (

@@ -1,9 +1,9 @@
 import React, { useRef } from 'react'
-import useStore from '../../../store/useStore'
-import { useBoardEditorBridge } from '../hooks/useBoardEditorBridge'
-import { sanitizeSnapshot } from '../../../features/boards/utils/shapeStyleNormalizer'
-import { boardMetaStore } from '../../../features/boards/meta/boardMetaStore'
-import { shapeMetaStore } from '../../../features/boards/meta/shapeMetaStore'
+import useStore from '../../store/useStore'
+import { useEditor } from '@tldraw/tldraw'
+import { sanitizeSnapshot } from '../../features/boards/utils/shapeStyleNormalizer'
+import { boardMetaStore } from '../../features/boards/meta/boardMetaStore'
+import { shapeMetaStore } from '../../features/boards/meta/shapeMetaStore'
 
 export default function SyncDetailsPopover({ onClose }) {
   const syncState = useStore(s => s.syncState)
@@ -13,8 +13,7 @@ export default function SyncDetailsPopover({ onClose }) {
   const lastRemoteRevision = useStore(s => s.lastRemoteRevision)
   const conflictDetails = useStore(s => s.conflictDetails)
   
-  const bridge = useBoardEditorBridge()
-  const editor = bridge?.editor
+  const editor = useEditor()
   const boardId = window.location.pathname.split('/').pop() // simplistic, but works here
   
   const fileInputRef = useRef(null)

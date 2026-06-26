@@ -11,7 +11,7 @@ import { useCallback, useRef, useEffect, useState } from 'react'
 import { Tldraw, useEditor, DefaultSharePanel } from '@tldraw/tldraw'
 import { useNavigate } from 'react-router-dom'
 import '@tldraw/tldraw/tldraw.css'
-import BoardScreen from './ui/BoardScreen'
+import TopRightStatusCluster from './components/TopRightStatusCluster'
 import { AssetRecordType } from '@tldraw/tlschema'
 import { useWebSocket } from './useWebSocket'
 import useStore from '../store/useStore'
@@ -182,10 +182,10 @@ function AppOverlay() {
   useEffect(() => {
     const handleSearch = () => { if (searchEnabled) setShowSearch(s => !s) }
     const handleOutline = () => setShowOutline(s => !s)
-    
+
     window.addEventListener('TOGGLE_SEARCH_PANEL', handleSearch)
     window.addEventListener('TOGGLE_OUTLINE_PANEL', handleOutline)
-    
+
     return () => {
       window.removeEventListener('TOGGLE_SEARCH_PANEL', handleSearch)
       window.removeEventListener('TOGGLE_OUTLINE_PANEL', handleOutline)
@@ -236,7 +236,7 @@ function CanvasInner({ boardId }) {
   useBoardSync(editor, boardId)
   // Kết nối hook note workflow
   useNoteWorkflow(editor, boardId)
-  
+
   const { createQuickNote, createQuickText, createJournalHeaderIfNeeded } = useQuickCapture()
 
   useEffect(() => {
@@ -254,7 +254,7 @@ function CanvasInner({ boardId }) {
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || editor?.getEditingShapeId()) return
-      
+
       if (e.shiftKey) {
         if (e.key.toLowerCase() === 'n') {
           e.preventDefault()
@@ -309,7 +309,7 @@ function CanvasInner({ boardId }) {
     }
     editor.registerExternalAssetHandler('file', handleAsset)
     return () => {
-      try { editor.registerExternalAssetHandler('file', null) } catch (_) {}
+      try { editor.registerExternalAssetHandler('file', null) } catch (_) { }
     }
   }, [editor, addToast])
 
@@ -328,7 +328,7 @@ export default function InfiniCanvas({ boardId }) {
   useEffect(() => {
     if (!boardId) return
     console.log(`[BOOT] Start — boardId=${boardId} phase=${boardPhase}`)
-    
+
     // Safety valve: never block more than 3s waiting for IDB
     const safetyTimer = setTimeout(() => {
       console.warn('[BOOT] Safety valve fired (3s) — forcing mounting')
@@ -340,7 +340,7 @@ export default function InfiniCanvas({ boardId }) {
         console.log('[BOOT] IDB rescue: opening tldraw database...')
         const persistenceKey = `infininote-board-${boardId}`
         const req = indexedDB.open('tldraw')
-        
+
         req.onsuccess = (e) => {
           const db = e.target.result
           console.log('[BOOT] IDB open OK — stores:', [...db.objectStoreNames])
@@ -350,11 +350,11 @@ export default function InfiniCanvas({ boardId }) {
             setBoardPhase('mounting')
             return
           }
-          
+
           const tx = db.transaction(persistenceKey, 'readwrite')
           const store = tx.objectStore(persistenceKey)
           const getAll = store.getAll()
-          
+
           getAll.onsuccess = () => {
             console.log(`[BOOT] IDB getAll OK — ${getAll.result.length} records`)
             let fixed = 0
@@ -374,7 +374,7 @@ export default function InfiniCanvas({ boardId }) {
           getAll.onerror = () => {
             console.warn('[BOOT] IDB getAll error — continuing anyway')
           }
-          
+
           tx.oncomplete = () => {
             console.log('[BOOT] IDB tx complete — idb_rescue → mounting')
             clearTimeout(safetyTimer)
@@ -386,7 +386,7 @@ export default function InfiniCanvas({ boardId }) {
             setBoardPhase('mounting')
           }
         }
-        
+
         req.onerror = (ev) => {
           console.warn('[BOOT] IDB open error — continuing:', ev.target?.error)
           clearTimeout(safetyTimer)
@@ -402,10 +402,10 @@ export default function InfiniCanvas({ boardId }) {
         setBoardPhase('mounting')
       }
     }
-    
+
     tryRescue()
     return () => clearTimeout(safetyTimer)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [boardId])
 
   const handleClearCache = () => {
