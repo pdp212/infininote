@@ -98,9 +98,23 @@ export default function Dashboard() {
       const now = Date.now()
       let updated = boards.map(b => b.id === board.id ? { ...b, title: cleanTitle, lastAccessed: now } : b)
       updated.sort((a, b) => b.lastAccessed - a.lastAccessed)
-      
+      // Cập nhật state UI
       setBoards(updated)
       localStorage.setItem('infininote-recent-boards', JSON.stringify(updated))
+
+      // Cập nhật meta cục bộ luôn để đồng bộ với Canvas
+      try {
+        const metaKey = `infininote-board-meta-${board.id}`
+        const metaStr = localStorage.getItem(metaKey)
+        if (metaStr) {
+          const metaObj = JSON.parse(metaStr)
+          metaObj.boardTitle = cleanTitle
+          metaObj.updatedAt = new Date(now).toISOString()
+          localStorage.setItem(metaKey, JSON.stringify(metaObj))
+        }
+      } catch (e) {
+        console.warn('Failed to update local meta:', e)
+      }
 
       try {
         const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
@@ -109,12 +123,15 @@ export default function Dashboard() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ title: cleanTitle })
         })
-        if (!res.ok) throw new Error('API error')
+        if (!res.ok) {
+          // Bỏ qua lỗi 404 (bảng chưa từng sync lên server)
+          if (res.status !== 404) {
+            throw new Error('API error')
+          }
+        }
       } catch (err) {
         console.warn('Lỗi khi đổi tên bảng trên server:', err)
-        alert('Không thể đổi tên bảng. Đang hoàn tác...')
-        setBoards(previousBoards)
-        localStorage.setItem('infininote-recent-boards', JSON.stringify(previousBoards))
+        alert('Không thể kết nối đến máy chủ. Tên bảng chỉ được lưu cục bộ!')
       }
     }
   }
@@ -129,16 +146,23 @@ export default function Dashboard() {
       const updated = boards.filter(b => b.id !== board.id)
       setBoards(updated)
       localStorage.setItem('infininote-recent-boards', JSON.stringify(updated))
+      
+      // Xoá luôn meta cục bộ
+      localStorage.removeItem(`infininote-board-meta-${board.id}`)
 
       try {
         const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
         const res = await fetch(`${API_URL.replace(/\/$/, '')}/api/boards/${board.id}`, {
           method: 'DELETE'
         })
-        if (!res.ok) throw new Error('API error')
+        if (!res.ok) {
+          if (res.status !== 404) {
+            throw new Error('API error')
+          }
+        }
       } catch (err) {
         console.warn('Lỗi khi xoá bảng trên server:', err)
-        alert('Không thể xóa bảng. Đang hoàn tác...')
+        alert('Không thể kết nối đến máy chủ để xóa bảng. Đang hoàn tác...')
         setBoards(previousBoards)
         localStorage.setItem('infininote-recent-boards', JSON.stringify(previousBoards))
       }
