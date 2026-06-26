@@ -17,8 +17,6 @@ export function sanitizeBoardMeta(meta) {
     version: meta.version || 1,
     boardTitle: meta.boardTitle || '',
     boardTags: [...new Set(cleanTags)], // deduplicate
-    boardType: meta.boardType || 'board',
-    journalDate: meta.journalDate || null,
     preferences: meta.preferences || {},
     outline: meta.outline || {},
     updatedAt: meta.updatedAt || new Date().toISOString()

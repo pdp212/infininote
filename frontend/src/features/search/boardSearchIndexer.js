@@ -38,8 +38,6 @@ export function buildBoardSearchIndex(boardId, editor) {
     boardId,
     boardTitle: boardMeta.boardTitle || boardId,
     boardTags: boardMeta.boardTags || [],
-    boardType: boardMeta.boardType,
-    journalDate: boardMeta.journalDate,
     updatedAt: boardMeta.updatedAt,
     items
   }

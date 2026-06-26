@@ -136,8 +136,6 @@ async def get_boards_summary() -> list[dict]:
         summaries.append({
             "boardId": board_id,
             "title": board_meta.get("boardTitle") or board_meta.get("title") or board_id,
-            "boardType": board_meta.get("boardType"),
-            "journalDate": board_meta.get("journalDate"),
             "boardTags": board_meta.get("boardTags", []),
             "updatedAt": updated_at,
             "textPreview": text_preview

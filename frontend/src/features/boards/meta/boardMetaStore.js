@@ -69,10 +69,6 @@ class BoardMetaStore {
     return this.saveBoardMeta(boardId, { ...current, boardTitle: title })
   }
 
-  setJournalMeta(boardId, journalDate) {
-    const current = this.getBoardMeta(boardId)
-    return this.saveBoardMeta(boardId, { ...current, journalDate, boardType: 'journal' })
-  }
 }
 
 export const boardMetaStore = new BoardMetaStore()

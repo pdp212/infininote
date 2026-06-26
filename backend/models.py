@@ -29,8 +29,6 @@ class WSMessage(BaseModel):
 class BoardSummary(BaseModel):
     boardId: str
     title: str | None = None
-    boardType: str | None = None
-    journalDate: str | None = None
     boardTags: list[str] = []
     updatedAt: str
     textPreview: list[str] = []

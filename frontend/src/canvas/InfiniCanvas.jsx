@@ -15,7 +15,7 @@ import TopRightStatusCluster from './components/TopRightStatusCluster'
 import { AssetRecordType } from '@tldraw/tlschema'
 import { useWebSocket } from './useWebSocket'
 import useStore from '../store/useStore'
-import { getOrCreateTodayJournalBoard } from '../features/journal/journalBoardService'
+
 import { sanitizeShapeForTldraw } from '../features/boards/utils/shapeStyleNormalizer'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
@@ -108,18 +108,11 @@ function FocusExitButton() {
 function EmptyBoardHint() {
   const editor = useEditor()
   const [isEmpty, setIsEmpty] = useState(false)
-  const [isJournal, setIsJournal] = useState(false)
 
   useEffect(() => {
     if (!editor) return
-    const boardId = window.location.pathname.split('/').pop()
-    const boards = JSON.parse(localStorage.getItem('infininote-recent-boards') || '[]')
-    const board = boards.find(b => b.id === boardId)
-    setIsJournal(board && board.boardType === 'journal')
-
     const checkEmpty = () => {
-      // Exclude journal header from empty check so the hint still shows
-      const shapes = editor.store.allRecords().filter(r => r.typeName === 'shape' && r.meta?.infininoteRole !== 'journal-header')
+      const shapes = editor.store.allRecords().filter(r => r.typeName === 'shape')
       setIsEmpty(shapes.length === 0)
     }
     checkEmpty()
@@ -127,18 +120,6 @@ function EmptyBoardHint() {
   }, [editor])
 
   if (!isEmpty) return null
-
-  if (isJournal) {
-    return (
-      <div style={{
-        position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
-        pointerEvents: 'none', color: '#888', textAlign: 'center', zIndex: -1
-      }}>
-        <h3 style={{ margin: 0, fontSize: '20px', fontWeight: 600, color: '#aaa' }}>Nhật ký hôm nay</h3>
-        <p style={{ margin: '8px 0 0 0', fontSize: '15px', opacity: 0.7 }}>Nhấn Quick Note để ghi nhanh ý tưởng, việc cần làm hoặc điều đang nghĩ</p>
-      </div>
-    )
-  }
 
   return (
     <div style={{
@@ -210,7 +191,6 @@ function AppOverlay() {
 
 import { useBoardSync } from '../features/boards/hooks/useBoardSync'
 import { useNoteWorkflow } from '../features/boards/hooks/useNoteWorkflow'
-import { useQuickCapture } from '../features/journal/useQuickCapture'
 
 // ── Canvas Inner (có editor context) ──────────────────────────
 function CanvasInner({ boardId }) {
@@ -231,41 +211,7 @@ function CanvasInner({ boardId }) {
   // Kết nối hook note workflow
   useNoteWorkflow(editor, boardId)
 
-  const { createQuickNote, createQuickText, createJournalHeaderIfNeeded } = useQuickCapture()
 
-  useEffect(() => {
-    // Only run after initial hydration to avoid duplicate headers
-    const timer = setTimeout(() => {
-      const boards = JSON.parse(localStorage.getItem('infininote-recent-boards') || '[]')
-      const board = boards.find(b => b.id === boardId)
-      if (board && board.boardType === 'journal') {
-        createJournalHeaderIfNeeded(board.journalDate)
-      }
-    }, 500)
-    return () => clearTimeout(timer)
-  }, [boardId, createJournalHeaderIfNeeded])
-
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || editor?.getEditingShapeId()) return
-
-      if (e.shiftKey) {
-        if (e.key.toLowerCase() === 'n') {
-          e.preventDefault()
-          createQuickNote()
-        } else if (e.key.toLowerCase() === 't') {
-          e.preventDefault()
-          createQuickText()
-        } else if (e.key.toLowerCase() === 'j') {
-          e.preventDefault()
-          const today = getOrCreateTodayJournalBoard()
-          window.location.href = `/board/${today.id}`
-        }
-      }
-    }
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [editor, createQuickNote, createQuickText])
 
   // Đăng ký asset handler: tldraw v2.4.x gọi với (info) không phải (asset, file)
   // info = { type: 'file', file: File } → phải trả về TLAsset hoặc null
