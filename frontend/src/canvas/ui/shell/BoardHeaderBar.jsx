@@ -15,11 +15,78 @@ const IconButton = ({ onClick, disabled, children, title }) => (
 )
 
 import { useQuickCapture } from '../../../features/journal/useQuickCapture'
+import useStore from '../../../store/useStore'
+import SyncDetailsPopover from './SyncDetailsPopover'
+
+// --- Thêm Component Đồng bộ từ TopRightStatusCluster ---
+function SyncBadgeCluster({ onClick }) {
+  const syncState = useStore(s => s.syncState)
+  const isOnline = useStore(s => s.isOnline)
+
+  let badge1 = ''
+  let badge2 = ''
+  let dotColor = '#ffcc66' // warning default
+  
+  const networkStr = isOnline ? 'Online' : 'Offline'
+
+  switch (syncState) {
+    case 'hydrating_local':
+    case 'checking_server':
+      badge1 = 'Đồng bộ...'
+      badge2 = networkStr
+      dotColor = isOnline ? '#2bd67b' : '#ffcc66'
+      break
+    case 'saving_local':
+    case 'saving_remote':
+      badge1 = 'Đang lưu...'
+      badge2 = networkStr
+      dotColor = isOnline ? '#2bd67b' : '#ffcc66'
+      break
+    case 'offline_dirty':
+      badge1 = 'Đã lưu trên máy'
+      badge2 = 'Chưa đồng bộ'
+      dotColor = '#ffcc66'
+      break
+    case 'synced':
+      badge1 = 'Đã đồng bộ'
+      badge2 = 'Online'
+      dotColor = '#2bd67b'
+      break
+    case 'conflict':
+      badge1 = 'Xung đột dữ liệu'
+      badge2 = 'Cần xử lý'
+      dotColor = '#ef4444' // red
+      break
+    case 'error':
+      badge1 = 'Lỗi lưu'
+      badge2 = 'Thử lại'
+      dotColor = '#ef4444' // red
+      break
+    default:
+      badge1 = 'Đã đồng bộ'
+      badge2 = 'Online'
+      dotColor = '#2bd67b'
+  }
+
+  return (
+    <div className="board-status-badge-group" onClick={onClick} style={{ display: 'flex', gap: '8px', cursor: 'pointer', alignItems: 'center' }}>
+      <div className="board-status-badge" style={{ padding: '4px 8px', background: 'transparent', color: '#aaa', fontSize: '12px' }}>
+        {badge1}
+      </div>
+      <div className="board-status-badge" style={{ padding: '4px 8px', background: 'rgba(255,255,255,0.05)', color: '#fff', borderRadius: '12px', fontSize: '12px', display: 'flex', alignItems: 'center' }}>
+        <span style={{ color: dotColor, marginRight: '6px', fontSize: '10px' }}>●</span>
+        {badge2}
+      </div>
+    </div>
+  )
+}
+// --------------------------------------------------------
 
 export default function BoardHeaderBar() {
-  const { undo, redo, deleteSelection, duplicateSelection, canUndo, canRedo } = useBoardActions()
+  const { undo, redo, deleteSelection, duplicateSelection, canUndo, canRedo, goToDashboard } = useBoardActions()
   const { hasSelection } = useBoardSelection()
   const { createQuickNote, createQuickText } = useQuickCapture()
+  const [showPopover, setShowPopover] = React.useState(false)
 
   return (
     <div className="infininote-panel board-header-bar">
@@ -87,6 +154,23 @@ export default function BoardHeaderBar() {
             <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
           </svg>
         </IconButton>
+      </div>
+
+      <div className="board-tool-divider" style={{ width: '1px', height: '20px', margin: '0 8px' }} />
+
+      {/* --- Sync & Back Group --- */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', position: 'relative' }}>
+        <SyncBadgeCluster onClick={() => setShowPopover(!showPopover)} />
+        <button 
+          onClick={goToDashboard}
+          style={{ padding: '6px 12px', background: '#6366f1', color: '#fff', border: 'none', borderRadius: '16px', fontSize: '12px', fontWeight: 500, cursor: 'pointer' }}
+        >
+          Quay lại
+        </button>
+
+        {showPopover && (
+          <SyncDetailsPopover onClose={() => setShowPopover(false)} />
+        )}
       </div>
     </div>
   )

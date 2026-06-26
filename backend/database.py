@@ -64,34 +64,6 @@ async def upsert_board(board_id: str, snapshot: dict, base_revision: int = None,
     return {"status": "success", "revision": new_rev}
 
 
-async def delete_board(board_id: str) -> dict:
-    """Xóa vĩnh viễn dữ liệu board khỏi MongoDB."""
-    collection = get_board_collection()
-    res = await collection.delete_one({"_id": board_id})
-    if res.deleted_count > 0:
-        return {"status": "success"}
-    return {"status": "not_found"}
-
-
-async def update_board_title(board_id: str, new_title: str) -> dict:
-    """Cập nhật tiêu đề bảng trong app_meta."""
-    collection = get_board_collection()
-    # MongoDB có thể update deep nested field bằng dot notation
-    res = await collection.update_one(
-        {"_id": board_id},
-        {
-            "$set": {
-                "app_meta.boardMeta.title": new_title,
-                "app_meta.boardMeta.boardTitle": new_title,
-                "updated_at": __import__("datetime").datetime.utcnow().isoformat()
-            }
-        }
-    )
-    if res.modified_count > 0 or res.matched_count > 0:
-        return {"status": "success"}
-    return {"status": "not_found"}
-
-
 async def apply_delta(board_id: str, delta: dict, app_meta: dict = None) -> dict:
     """Áp dụng bản vá (DELTA) vào snapshot của canvas hiện tại (CRDT-lite)."""
     collection = get_board_collection()

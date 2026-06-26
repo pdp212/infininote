@@ -8,12 +8,12 @@ import logging
 import cloudinary
 import cloudinary.uploader
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, UploadFile, File, HTTPException
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
-from database import get_board, upsert_board, get_client, apply_delta, get_boards_summary, delete_board, update_board_title
-from models import SnapshotPayload, ImageUploadResponse, BoardSummary, BoardTitleUpdate
+from database import get_board, upsert_board, get_client, apply_delta, get_boards_summary
+from models import SnapshotPayload, ImageUploadResponse, BoardSummary
 
 load_dotenv()
 
@@ -145,22 +145,6 @@ async def save_board(board_id: str, payload: SnapshotPayload):
             }
         )
     return {"status": "saved", "revision": res["revision"]}
-
-@app.put("/api/board/{board_id}/title")
-async def api_update_board_title(board_id: str, payload: BoardTitleUpdate):
-    """Cập nhật tiêu đề của board."""
-    res = await update_board_title(board_id, payload.title)
-    if res["status"] == "not_found":
-        raise HTTPException(404, "Board not found")
-    return {"status": "success"}
-
-@app.delete("/api/board/{board_id}")
-async def api_delete_board(board_id: str):
-    """Xoá board vĩnh viễn."""
-    res = await delete_board(board_id)
-    if res["status"] == "not_found":
-        raise HTTPException(404, "Board not found")
-    return {"status": "success"}
 
 @app.post("/api/board")
 async def save_board_legacy(payload: SnapshotPayload):

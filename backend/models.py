@@ -35,6 +35,3 @@ class BoardSummary(BaseModel):
     updatedAt: str
     textPreview: list[str] = []
 
-
-class BoardTitleUpdate(BaseModel):
-    title: str
