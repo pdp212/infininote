@@ -1,4 +1,4 @@
-# InfiniNote 🌌
+# InfiniNote
 
 > **Không gian vẽ vô hạn cá nhân** — Hoạt động 24/7, hoàn toàn **0 đồng** trên Cloud.
 

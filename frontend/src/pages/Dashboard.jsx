@@ -2,11 +2,14 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Header from '../components/Header'
 import { getOrCreateTodayJournalBoard, getOrCreateYesterdayJournalBoard } from '../features/journal/journalBoardService'
+import useStore from '../store/useStore'
 
 export default function Dashboard() {
   const navigate = useNavigate()
   const [boards, setBoards] = useState([])
   const [openMenuId, setOpenMenuId] = useState(null)
+  const isUnlocked = useStore(s => s.isUnlocked)
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
   useEffect(() => {
     const handleClickOutside = () => setOpenMenuId(null)
@@ -25,7 +28,6 @@ export default function Dashboard() {
     }
     
     // Fetch global summaries to keep Dashboard in sync with server
-    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
     fetch(`${API_URL.replace(/\/$/, '')}/api/boards/search-index`)
       .then(res => res.json())
       .then(data => {
@@ -70,24 +72,43 @@ export default function Dashboard() {
     setOpenMenuId(prev => prev === id ? null : id)
   }
 
-  const renameBoard = (e, board) => {
+  const renameBoard = async (e, board) => {
     e.stopPropagation()
     setOpenMenuId(null)
     const newTitle = window.prompt('Nhập tên mới cho bảng:', board.title)
-    if (newTitle && newTitle.trim()) {
-      const updated = boards.map(b => b.id === board.id ? { ...b, title: newTitle.trim() } : b)
+    if (newTitle && newTitle.trim() && newTitle.trim() !== board.title) {
+      const trimmedTitle = newTitle.trim()
+      const updated = boards.map(b => b.id === board.id ? { ...b, title: trimmedTitle } : b)
       setBoards(updated)
       localStorage.setItem('infininote-recent-boards', JSON.stringify(updated))
+      
+      try {
+        await fetch(`${API_URL.replace(/\/$/, '')}/api/board/${board.id}/title`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title: trimmedTitle })
+        })
+      } catch (err) {
+        console.error('Failed to rename board', err)
+      }
     }
   }
 
-  const deleteBoard = (e, board) => {
+  const deleteBoard = async (e, board) => {
     e.stopPropagation()
     setOpenMenuId(null)
     if (window.confirm(`Bạn có chắc chắn muốn xóa bảng "${board.title}"?`)) {
       const updated = boards.filter(b => b.id !== board.id)
       setBoards(updated)
       localStorage.setItem('infininote-recent-boards', JSON.stringify(updated))
+      
+      try {
+        await fetch(`${API_URL.replace(/\/$/, '')}/api/board/${board.id}`, {
+          method: 'DELETE'
+        })
+      } catch (err) {
+        console.error('Failed to delete board', err)
+      }
     }
   }
 
@@ -132,6 +153,19 @@ export default function Dashboard() {
                   <div className="board-card-info">
                     <h3 style={{ color: '#2bd67b' }}>{board.title}</h3>
                     <p>{new Date(board.lastAccessed).toLocaleString('vi-VN')}</p>
+                  </div>
+                  <div className="board-card-actions" onClick={(e) => toggleMenu(e, board.id)}>
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#999' }}>
+                      <circle cx="12" cy="12" r="1"></circle>
+                      <circle cx="19" cy="12" r="1"></circle>
+                      <circle cx="5" cy="12" r="1"></circle>
+                    </svg>
+                    {openMenuId === board.id && (
+                      <div className="card-context-menu">
+                        <button onClick={(e) => renameBoard(e, board)}>Đổi tên</button>
+                        <button onClick={(e) => deleteBoard(e, board)} className="danger">Xóa bảng</button>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))
