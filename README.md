@@ -10,13 +10,15 @@
 
 ## 💡 Tính năng Nổi bật
 
+- ✅ **Note-First Workflow (V5)** — Trải nghiệm sổ tay cá nhân đích thực: Quick Note, Journal hôm nay, Outline tự động.
+- ✅ **Search & Retrieval (Cmd+K)** — Công cụ tìm kiếm nội dung (tag, text, tiêu đề) xuyên suốt các board.
+- ✅ **Crash Recovery & Safe Sync (V5.3)** — Tự động cứu hộ dữ liệu cục bộ (IDB Rescue) không làm treo board, cơ chế tải board bằng State Machine 1-luồng an toàn tuyệt đối.
 - ✅ **Multi-board Dashboard** — Quản lý nhiều không gian làm việc (board) riêng biệt với URL động.
 - ✅ **Đồng bộ CRDT-lite (DELTA Sync)** — Vẽ cùng lúc trên nhiều thiết bị siêu mượt mà không lo bị đè nét.
-- ✅ **Canva-like UI** — Giao diện được thiết kế tối giản, công cụ được gộp gọn lên Header, mở rộng 100% không gian canvas.
+- ✅ **Canva-like UI & Premium Auth** — Giao diện được thiết kế tối giản, màn hình khoá Glassmorphism cao cấp, mở rộng 100% không gian canvas.
 - ✅ **Infinite Canvas** — Tích hợp tldraw: Zoom, pan, vẽ, ghi chú, hình khối, mũi tên.
 - ✅ **Image Paste** — Dán ảnh trực tiếp từ clipboard (Ctrl+V) và tự động upload lên Cloudinary.
-- ✅ **PWA Ready** — Cài lên iPhone/Android hoặc desktop như app native.
-- ✅ **Light/Dark Mode** — Hỗ trợ chuyển đổi theme nhanh chóng.
+- ✅ **PWA & Mobile Ready** — Cài lên iPhone/Android, hỗ trợ dock trên di động.
 - ✅ **Offline Resilient** — Tự động fallback sang REST API khi mất mạng & auto-reconnect WebSocket.
 
 ---
@@ -75,11 +77,14 @@ InfiniNote/
 │   │   └── manifest.json
 │   ├── src/
 │   │   ├── canvas/              # Core Editor Engine
-│   │   │   ├── ui/
-│   │   │   │   ├── BoardScreen.jsx  # Floating UI Shell
-│   │   │   │   └── board-ui.css     # UI Styling
+│   │   │   ├── ui/              # Floating UI Shell
 │   │   │   ├── InfiniCanvas.jsx # Board Wrapper
 │   │   │   └── useWebSocket.js  # CRDT Sync Logic
+│   │   ├── features/            # Business logic (V5)
+│   │   │   ├── boards/          # Sync, recovery, schema validation
+│   │   │   ├── journal/         # Quick capture, daily journals
+│   │   │   ├── outline/         # Document structure
+│   │   │   └── search/          # Local/Global search indexer
 │   │   ├── components/
 │   │   │   ├── Header.jsx       # Global Header
 │   │   │   └── LockScreen.jsx   # Passcode protection
@@ -87,10 +92,9 @@ InfiniNote/
 │   │   │   ├── Board.jsx        # Editor Route
 │   │   │   └── Dashboard.jsx    # Workspace Route
 │   │   ├── store/
-│   │   │   └── useStore.js      # Zustand State
+│   │   │   └── useStore.js      # Zustand State Machine
 │   │   ├── App.jsx
 │   │   ├── index.css
-│   │   ├── colorPatch.js
 │   │   └── main.jsx
 │   ├── .env.example
 │   ├── index.html
