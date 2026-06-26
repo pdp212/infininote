@@ -152,7 +152,6 @@ function EmptyBoardHint() {
 }
 
 import SearchPanel from '../features/search/components/SearchPanel'
-import OutlinePanel from '../features/outline/components/OutlinePanel'
 
 function AppOverlay() {
   const [showSearch, setShowSearch] = useState(false)
@@ -181,14 +180,11 @@ function AppOverlay() {
 
   useEffect(() => {
     const handleSearch = () => { if (searchEnabled) setShowSearch(s => !s) }
-    const handleOutline = () => setShowOutline(s => !s)
-
+    
     window.addEventListener('TOGGLE_SEARCH_PANEL', handleSearch)
-    window.addEventListener('TOGGLE_OUTLINE_PANEL', handleOutline)
-
+    
     return () => {
       window.removeEventListener('TOGGLE_SEARCH_PANEL', handleSearch)
-      window.removeEventListener('TOGGLE_OUTLINE_PANEL', handleOutline)
     }
   }, [searchEnabled])
 
@@ -207,9 +203,7 @@ function AppOverlay() {
     <>
       <FocusExitButton />
       <EmptyBoardHint />
-      <BoardScreen />
       {showSearch && searchEnabled && <SearchPanel onClose={() => setShowSearch(false)} />}
-      {showOutline && <OutlinePanel onClose={() => setShowOutline(false)} />}
     </>
   )
 }
