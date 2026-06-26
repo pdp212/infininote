@@ -12,8 +12,8 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Uplo
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
-from database import get_board, upsert_board, get_client, apply_delta
-from models import SnapshotPayload, ImageUploadResponse
+from database import get_board, upsert_board, get_client, apply_delta, get_boards_summary
+from models import SnapshotPayload, ImageUploadResponse, BoardSummary
 
 load_dotenv()
 
@@ -72,7 +72,8 @@ class ConnectionManager:
         if board_id not in self.active:
             self.active[board_id] = []
         self.active[board_id].append(ws)
-        logger.info(f"✅ Client connected to {board_id}. Total: {len(self.active[board_id])}")
+        logger.info(f"[WS] CONNECT")
+        logger.info(f"[WS] CLIENT COUNT: {len(self.active[board_id])}")
 
     def disconnect(self, ws: WebSocket, board_id: str):
         if board_id in self.active and ws in self.active[board_id]:
@@ -86,11 +87,13 @@ class ConnectionManager:
         if board_id not in self.active:
             return
         dead = []
-        for ws in self.active[board_id]:
+        logger.info("[WS] BROADCAST START")
+        for i, ws in enumerate(self.active[board_id]):
             if ws is exclude:
                 continue
             try:
                 await ws.send_text(message)
+                logger.info(f"[WS] BROADCAST -> client {i}")
             except Exception:
                 dead.append(ws)
         for ws in dead:
@@ -113,8 +116,18 @@ async def load_board(board_id: str):
     """Trả về snapshot tldraw hiện tại từ MongoDB."""
     doc = await get_board(board_id)
     if not doc:
-        return {"snapshot": None, "revision": 0, "updatedAt": None}
-    return {"snapshot": doc.get("snapshot"), "revision": doc.get("revision", 0), "updatedAt": doc.get("updated_at")}
+        return {"snapshot": None, "revision": 0, "updatedAt": None, "app_meta": None}
+    return {
+        "snapshot": doc.get("snapshot"), 
+        "revision": doc.get("revision", 0), 
+        "updatedAt": doc.get("updated_at"),
+        "app_meta": doc.get("app_meta")
+    }
+
+@app.get("/api/boards/search-index", response_model=list[BoardSummary])
+async def get_search_index():
+    """Lấy danh sách summary phục vụ global search."""
+    return await get_boards_summary()
 
 @app.get("/api/board")
 async def load_board_legacy():
@@ -124,7 +137,7 @@ async def load_board_legacy():
 @app.post("/api/board/{board_id}")
 async def save_board(board_id: str, payload: SnapshotPayload):
     """Lưu toàn bộ tldraw snapshot vào MongoDB (fallback khi WS offline)."""
-    res = await upsert_board(board_id, payload.snapshot, payload.baseRevision)
+    res = await upsert_board(board_id, payload.snapshot, payload.baseRevision, payload.app_meta)
     if res.get("status") == "conflict":
         raise HTTPException(
             status_code=409, 
@@ -176,6 +189,7 @@ async def websocket_endpoint(websocket: WebSocket, board_id: str):
     - Khi nhận DELTA → áp dụng thay đổi vào MongoDB + broadcast đến các client khác
     """
     await manager.connect(websocket, board_id)
+    logger.info(f"[WS] ROOM JOIN: {board_id}")
 
     # Gửi trạng thái canvas ban đầu cho client mới
     doc = await get_board(board_id)
@@ -183,6 +197,7 @@ async def websocket_endpoint(websocket: WebSocket, board_id: str):
         "type": "INIT_LOAD",
         "payload": doc.get("snapshot") if doc else None,
         "revision": doc.get("revision", 0) if doc else 0,
+        "app_meta": doc.get("app_meta") if doc else None,
     })
     await websocket.send_text(init_msg)
 
@@ -203,20 +218,25 @@ async def websocket_endpoint(websocket: WebSocket, board_id: str):
 
             elif msg_type == "DELTA":
                 changes = msg.get("changes")
-                if changes:
+                app_meta = msg.get("app_meta")
+                if changes or app_meta:
+                    logger.info("[WS] RECEIVE DELTA")
                     # Apply changes to MongoDB (CRDT-lite)
-                    res = await apply_delta(board_id, changes)
+                    logger.info("[WS] SAVE SNAPSHOT")
+                    res = await apply_delta(board_id, changes or {}, app_meta)
                     # Broadcast đến tất cả client khác
                     msg["revision"] = res["revision"]
                     out_raw = json.dumps(msg)
                     await manager.broadcast(out_raw, board_id, exclude=websocket)
+                    logger.info("[WS] ACK SENDER")
                     await websocket.send_text(json.dumps({"type": "ACK_REVISION", "revision": res["revision"]}))
                     
             elif msg_type == "FULL_SYNC":
                 snapshot = msg.get("payload")
+                app_meta = msg.get("app_meta")
                 base_revision = msg.get("baseRevision")
                 if snapshot:
-                    res = await upsert_board(board_id, snapshot, base_revision)
+                    res = await upsert_board(board_id, snapshot, base_revision, app_meta)
                     if res.get("status") == "conflict":
                         doc = res["doc"]
                         await websocket.send_text(json.dumps({
@@ -225,7 +245,12 @@ async def websocket_endpoint(websocket: WebSocket, board_id: str):
                             "revision": doc.get("revision", 0)
                         }))
                     else:
-                        out_raw = json.dumps({"type": "FULL_SYNC", "payload": snapshot, "revision": res["revision"]})
+                        out_raw = json.dumps({
+                            "type": "FULL_SYNC", 
+                            "payload": snapshot, 
+                            "revision": res["revision"],
+                            "app_meta": app_meta
+                        })
                         await manager.broadcast(out_raw, board_id, exclude=websocket)
                         await websocket.send_text(json.dumps({"type": "ACK_REVISION", "revision": res["revision"]}))
 
