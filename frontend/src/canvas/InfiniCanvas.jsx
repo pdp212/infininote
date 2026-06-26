@@ -451,7 +451,7 @@ export default function InfiniCanvas({ boardId }) {
         autoFocus
         inferDarkMode
         components={{
-          SharePanel: TopRightStatusCluster,
+          // SharePanel: TopRightStatusCluster,
           InFrontOfTheCanvas: AppOverlay,
         }}
       >
