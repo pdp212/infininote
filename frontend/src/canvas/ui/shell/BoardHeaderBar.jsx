@@ -14,121 +14,21 @@ const IconButton = ({ onClick, disabled, children, title }) => (
   </button>
 )
 
-import { useQuickCapture } from '../../../features/journal/useQuickCapture'
-import useStore from '../../../store/useStore'
-import SyncDetailsPopover from './SyncDetailsPopover'
-
-// --- Thêm Component Đồng bộ từ TopRightStatusCluster ---
-function SyncBadgeCluster({ onClick }) {
-  const syncState = useStore(s => s.syncState)
-  const isOnline = useStore(s => s.isOnline)
-
-  let badge1 = ''
-  let badge2 = ''
-  let dotColor = '#ffcc66' // warning default
-  
-  const networkStr = isOnline ? 'Online' : 'Offline'
-
-  switch (syncState) {
-    case 'hydrating_local':
-    case 'checking_server':
-      badge1 = 'Đồng bộ...'
-      badge2 = networkStr
-      dotColor = isOnline ? '#2bd67b' : '#ffcc66'
-      break
-    case 'saving_local':
-    case 'saving_remote':
-      badge1 = 'Đang lưu...'
-      badge2 = networkStr
-      dotColor = isOnline ? '#2bd67b' : '#ffcc66'
-      break
-    case 'offline_dirty':
-      badge1 = 'Đã lưu trên máy'
-      badge2 = 'Chưa đồng bộ'
-      dotColor = '#ffcc66'
-      break
-    case 'synced':
-      badge1 = 'Đã đồng bộ'
-      badge2 = 'Online'
-      dotColor = '#2bd67b'
-      break
-    case 'conflict':
-      badge1 = 'Xung đột dữ liệu'
-      badge2 = 'Cần xử lý'
-      dotColor = '#ef4444' // red
-      break
-    case 'error':
-      badge1 = 'Lỗi lưu'
-      badge2 = 'Thử lại'
-      dotColor = '#ef4444' // red
-      break
-    default:
-      badge1 = 'Đã đồng bộ'
-      badge2 = 'Online'
-      dotColor = '#2bd67b'
-  }
-
-  return (
-    <div className="board-status-badge-group" onClick={onClick} style={{ display: 'flex', gap: '8px', cursor: 'pointer', alignItems: 'center' }}>
-      <div className="board-status-badge" style={{ padding: '4px 8px', background: 'transparent', color: '#aaa', fontSize: '12px' }}>
-        {badge1}
-      </div>
-      <div className="board-status-badge" style={{ padding: '4px 8px', background: 'rgba(255,255,255,0.05)', color: '#fff', borderRadius: '12px', fontSize: '12px', display: 'flex', alignItems: 'center' }}>
-        <span style={{ color: dotColor, marginRight: '6px', fontSize: '10px' }}>●</span>
-        {badge2}
-      </div>
-    </div>
-  )
-}
-// --------------------------------------------------------
-
 export default function BoardHeaderBar() {
-  const { undo, redo, deleteSelection, duplicateSelection, canUndo, canRedo, goToDashboard } = useBoardActions()
+  const { undo, redo, deleteSelection, duplicateSelection, canUndo, canRedo } = useBoardActions()
   const { hasSelection } = useBoardSelection()
-  const { createQuickNote, createQuickText } = useQuickCapture()
-  const [showPopover, setShowPopover] = React.useState(false)
 
   return (
-    <div className="infininote-panel board-header-bar">
-      <div className="board-header-left">
+    <div className="infininote-panel board-header-bar" style={{ padding: '6px 12px', gap: '8px' }}>
+      <div className="board-header-left" style={{ gap: '4px' }}>
         <DefaultMainMenu />
-        <div className="board-tool-divider" style={{ width: '1px', height: '20px', margin: '0 8px' }} />
+        <div className="board-tool-divider" style={{ width: '1px', height: '20px', margin: '0 4px' }} />
         <DefaultPageMenu />
-        <div className="board-tool-divider" style={{ width: '1px', height: '20px', margin: '0 8px' }} />
-        <IconButton onClick={() => window.dispatchEvent(new CustomEvent('TOGGLE_SEARCH_PANEL'))} title="Search (Cmd+K)">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="11" cy="11" r="8" />
-            <line x1="21" y1="21" x2="16.65" y2="16.65" />
-          </svg>
-        </IconButton>
-        <IconButton onClick={() => window.dispatchEvent(new CustomEvent('TOGGLE_OUTLINE_PANEL'))} title="Outline">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="8" y1="6" x2="21" y2="6" />
-            <line x1="8" y1="12" x2="21" y2="12" />
-            <line x1="8" y1="18" x2="21" y2="18" />
-            <line x1="3" y1="6" x2="3.01" y2="6" />
-            <line x1="3" y1="12" x2="3.01" y2="12" />
-            <line x1="3" y1="18" x2="3.01" y2="18" />
-          </svg>
-        </IconButton>
       </div>
       
-      <div className="board-tool-divider" style={{ width: '1px', height: '20px', margin: '0 8px' }} />
+      <div className="board-tool-divider" style={{ width: '1px', height: '20px', margin: '0 4px' }} />
       
-      {/* --- Quick Capture Group --- */}
-      <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-        <button onClick={createQuickNote} style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'rgba(43, 214, 123, 0.1)', color: '#2bd67b', border: '1px solid rgba(43, 214, 123, 0.3)', borderRadius: '4px', padding: '4px 8px', fontSize: '13px', cursor: 'pointer', fontWeight: 500 }}>
-          <span style={{ fontSize: '16px' }}>+</span> Note
-        </button>
-        <button onClick={createQuickText} style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'transparent', color: '#ccc', border: '1px solid #444', borderRadius: '4px', padding: '4px 8px', fontSize: '13px', cursor: 'pointer', fontWeight: 500 }}>
-          <span style={{ fontSize: '16px' }}>+</span> Text
-        </button>
-      </div>
-
-      <div className="board-tool-divider" style={{ width: '1px', height: '20px', margin: '0 8px' }} />
-
-      
-      <div className="board-header-right">
+      <div className="board-header-right" style={{ gap: '4px' }}>
         <IconButton onClick={undo} disabled={!canUndo} title="Undo">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M3 7v6h6" />
@@ -141,7 +41,7 @@ export default function BoardHeaderBar() {
             <path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7" />
           </svg>
         </IconButton>
-        <div className="board-tool-divider" style={{ width: '1px', height: '20px', margin: '0 4px' }} />
+        <div className="board-tool-divider" style={{ width: '1px', height: '16px', margin: '0 2px' }} />
         <IconButton onClick={deleteSelection} disabled={!hasSelection} title="Delete">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M3 6h18" />
@@ -154,23 +54,6 @@ export default function BoardHeaderBar() {
             <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
           </svg>
         </IconButton>
-      </div>
-
-      <div className="board-tool-divider" style={{ width: '1px', height: '20px', margin: '0 8px' }} />
-
-      {/* --- Sync & Back Group --- */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', position: 'relative' }}>
-        <SyncBadgeCluster onClick={() => setShowPopover(!showPopover)} />
-        <button 
-          onClick={goToDashboard}
-          style={{ padding: '6px 12px', background: '#6366f1', color: '#fff', border: 'none', borderRadius: '16px', fontSize: '12px', fontWeight: 500, cursor: 'pointer' }}
-        >
-          Quay lại
-        </button>
-
-        {showPopover && (
-          <SyncDetailsPopover onClose={() => setShowPopover(false)} />
-        )}
       </div>
     </div>
   )

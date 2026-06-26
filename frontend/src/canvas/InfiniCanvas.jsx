@@ -457,7 +457,6 @@ export default function InfiniCanvas({ boardId }) {
         autoFocus
         inferDarkMode
         components={{
-          Toolbar: null,
           StylePanel: null,
           MainMenu: null,
           PageMenu: null,
