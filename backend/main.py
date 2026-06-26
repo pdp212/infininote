@@ -12,8 +12,8 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Uplo
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
-from database import get_board, upsert_board, get_client, apply_delta, get_boards_summary, rename_board, delete_board_by_id
-from models import SnapshotPayload, ImageUploadResponse, BoardSummary, BoardRenamePayload
+from database import get_board, upsert_board, get_client, apply_delta, get_boards_summary
+from models import SnapshotPayload, ImageUploadResponse, BoardSummary
 
 load_dotenv()
 
@@ -72,8 +72,7 @@ class ConnectionManager:
         if board_id not in self.active:
             self.active[board_id] = []
         self.active[board_id].append(ws)
-        logger.info(f"[WS] CONNECT")
-        logger.info(f"[WS] CLIENT COUNT: {len(self.active[board_id])}")
+        logger.info(f"✅ Client connected to {board_id}. Total: {len(self.active[board_id])}")
 
     def disconnect(self, ws: WebSocket, board_id: str):
         if board_id in self.active and ws in self.active[board_id]:
@@ -87,13 +86,11 @@ class ConnectionManager:
         if board_id not in self.active:
             return
         dead = []
-        logger.info("[WS] BROADCAST START")
-        for i, ws in enumerate(self.active[board_id]):
+        for ws in self.active[board_id]:
             if ws is exclude:
                 continue
             try:
                 await ws.send_text(message)
-                logger.info(f"[WS] BROADCAST -> client {i}")
             except Exception:
                 dead.append(ws)
         for ws in dead:
@@ -149,25 +146,6 @@ async def save_board(board_id: str, payload: SnapshotPayload):
         )
     return {"status": "saved", "revision": res["revision"]}
 
-@app.patch("/api/boards/{board_id}")
-async def update_board_title(board_id: str, payload: BoardRenamePayload):
-    logger.info(f"[API] PATCH board: {board_id} -> {payload.title}")
-    success = await rename_board(board_id, payload.title)
-    if not success:
-        raise HTTPException(status_code=404, detail="Board not found")
-    return {"status": "success", "title": payload.title}
-
-@app.delete("/api/boards/{board_id}")
-async def remove_board(board_id: str):
-    logger.info(f"[API] DELETE board: {board_id}")
-    success = await delete_board_by_id(board_id)
-    if not success:
-        raise HTTPException(status_code=404, detail="Board not found")
-        
-    # Broadcast deletion to clients
-    await manager.broadcast(json.dumps({"type": "BOARD_DELETED"}), board_id)
-    return {"status": "success"}
-
 @app.post("/api/board")
 async def save_board_legacy(payload: SnapshotPayload):
     """Fallback cho các client PWA cũ chưa cập nhật URL."""
@@ -208,7 +186,6 @@ async def websocket_endpoint(websocket: WebSocket, board_id: str):
     - Khi nhận DELTA → áp dụng thay đổi vào MongoDB + broadcast đến các client khác
     """
     await manager.connect(websocket, board_id)
-    logger.info(f"[WS] ROOM JOIN: {board_id}")
 
     # Gửi trạng thái canvas ban đầu cho client mới
     doc = await get_board(board_id)
@@ -239,15 +216,12 @@ async def websocket_endpoint(websocket: WebSocket, board_id: str):
                 changes = msg.get("changes")
                 app_meta = msg.get("app_meta")
                 if changes or app_meta:
-                    logger.info("[WS] RECEIVE DELTA")
                     # Apply changes to MongoDB (CRDT-lite)
-                    logger.info("[WS] SAVE SNAPSHOT")
                     res = await apply_delta(board_id, changes or {}, app_meta)
                     # Broadcast đến tất cả client khác
                     msg["revision"] = res["revision"]
                     out_raw = json.dumps(msg)
                     await manager.broadcast(out_raw, board_id, exclude=websocket)
-                    logger.info("[WS] ACK SENDER")
                     await websocket.send_text(json.dumps({"type": "ACK_REVISION", "revision": res["revision"]}))
                     
             elif msg_type == "FULL_SYNC":

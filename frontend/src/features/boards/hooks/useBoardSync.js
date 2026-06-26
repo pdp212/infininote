@@ -62,11 +62,9 @@ export function useBoardSync(editor, boardId) {
     isSyncing.current = true
     baseRevision.current = serverRevision
     
-    console.log('[WS] MERGE START', { records: docRecords.length, revision: serverRevision })
     editor.store.mergeRemoteChanges(() => {
       editor.store.put(docRecords)
     })
-    console.log('[WS] MERGE COMPLETE')
     
     updateSyncState({ 
       lastRemoteRevision: serverRevision,
@@ -76,7 +74,7 @@ export function useBoardSync(editor, boardId) {
       conflictDetails: null,
       pendingServerRefresh: false
     })
-    isSyncing.current = false
+    setTimeout(() => { isSyncing.current = false }, 150)
   }, [editor, updateSyncState])
 
   const mergeRemoteMeta = useCallback((boardId, app_meta) => {
@@ -133,6 +131,7 @@ export function useBoardSync(editor, boardId) {
       if (!isSyncing.current) applyDocRecords(msg.payload, msg.revision || 0)
       mergeRemoteMeta(boardId, msg.app_meta)
     } else if (msg.type === 'DELTA') {
+      if (isSyncing.current && !msg.app_meta) return
       isSyncing.current = true
       
       if (msg.app_meta) mergeRemoteMeta(boardId, msg.app_meta)
@@ -141,9 +140,6 @@ export function useBoardSync(editor, boardId) {
         baseRevision.current = msg.revision
         updateSyncState({ lastRemoteRevision: msg.revision })
       }
-      
-      console.log('[WS] RECEIVE DELTA', { revision: msg.revision, changes: msg.changes })
-      console.log('[WS] MERGE START')
       editor.store.mergeRemoteChanges(() => {
         // Deltas are just small records, we sanitize them on the fly
         const addedSanitized = Object.values(msg.changes.added || {}).map(r => sanitizeSnapshot({ store: { [r.id]: r } }).store[r.id])
@@ -154,15 +150,12 @@ export function useBoardSync(editor, boardId) {
         const toRemove = msg.changes.removed || []
         if (toRemove.length > 0) editor.store.remove(toRemove)
       })
-      console.log('[WS] MERGE COMPLETE')
-      
       updateSyncState({ lastRemoteSaveAt: Date.now() })
-      isSyncing.current = false
+      setTimeout(() => { isSyncing.current = false }, 50)
     } else if (msg.type === 'CONFLICT') {
       console.warn('[Sync] Conflict detected via WS!')
       handleConflict(msg.revision, msg.payload)
     } else if (msg.type === 'ACK_REVISION') {
-      console.log('[WS] ACK SENDER', { revision: msg.revision })
       baseRevision.current = msg.revision || baseRevision.current
       updateSyncState({ 
         lastRemoteRevision: baseRevision.current, 
@@ -171,9 +164,6 @@ export function useBoardSync(editor, boardId) {
         hasPendingLocalChanges: false,
         lastSyncError: null
       })
-    } else if (msg.type === 'BOARD_DELETED') {
-      alert('Bảng này đã bị xóa từ một thiết bị khác.')
-      window.location.href = '/'
     }
   }, [editor, applyDocRecords, updateSyncState, handleConflict, boardId, mergeRemoteMeta])
 
@@ -238,41 +228,6 @@ export function useBoardSync(editor, boardId) {
     }
   }, 600)
 
-  const pendingDeltas = useRef({ added: {}, updated: {}, removed: [] })
-  const deltaTimer = useRef(null)
-
-  const flushDeltas = useCallback(() => {
-    const changes = pendingDeltas.current
-    if (!Object.keys(changes.added).length && !Object.keys(changes.updated).length && changes.removed.length === 0) return
-
-    if (!useStore.getState().isOnline) {
-       updateSyncState({ syncState: 'offline_dirty' })
-       return
-    }
-
-    const app_meta = {
-      boardMeta: boardMetaStore.getBoardMeta(boardId),
-      shapeMeta: shapeMetaStore.getRegistry(boardId)
-    }
-
-    console.log('[WS] SEND DELTA')
-    const sent = sendMessage({ 
-      type: 'DELTA', 
-      changes: changes,
-      baseRevision: baseRevision.current,
-      app_meta
-    })
-    
-    if (!sent) {
-      syncToServer(editor.store.getSnapshot('document'))
-    } else {
-      updateSyncState({ syncState: 'saving_remote', lastSyncAttemptAt: Date.now() })
-    }
-
-    // Reset pending
-    pendingDeltas.current = { added: {}, updated: {}, removed: [] }
-  }, [boardId, sendMessage, syncToServer, updateSyncState])
-
   // Phase 4: Lắng nghe store changes từ local để đẩy lên server
   useEffect(() => {
     if (!editor) return
@@ -283,53 +238,56 @@ export function useBoardSync(editor, boardId) {
         if (isSyncing.current || entry.source !== 'user') return
 
         const changes = entry.changes
-        let hasChanges = false
-        let hasTextEdit = false
-        let hasDrawing = false
-        let hasDelete = false
+        const filtered = { added: {}, updated: {}, removed: [] }
         
         for (const [id, rec] of Object.entries(changes.added)) {
           if (!SESSION_TYPES.has(rec.typeName)) {
-            pendingDeltas.current.added[id] = sanitizeSnapshot({ store: { [id]: rec } }).store[id]
-            hasChanges = true
-            hasDrawing = true
+            filtered.added[id] = sanitizeSnapshot({ store: { [id]: rec } }).store[id]
           }
         }
         for (const [id, recs] of Object.entries(changes.updated)) {
           if (!SESSION_TYPES.has(recs[1].typeName)) {
-            pendingDeltas.current.updated[id] = sanitizeSnapshot({ store: { [id]: recs[1] } }).store[id]
-            hasChanges = true
-            if (recs[1].type === 'text' || recs[1].type === 'geo') hasTextEdit = true
-            else hasDrawing = true
+            filtered.updated[id] = sanitizeSnapshot({ store: { [id]: recs[1] } }).store[id]
           }
         }
         for (const [id, rec] of Object.entries(changes.removed)) {
-          if (!SESSION_TYPES.has(rec.typeName)) {
-            pendingDeltas.current.removed.push(id)
-            hasChanges = true
-            hasDelete = true
-          }
+          if (!SESSION_TYPES.has(rec.typeName)) filtered.removed.push(id)
         }
 
-        if (hasChanges) {
+        if (Object.keys(filtered.added).length || Object.keys(filtered.updated).length || filtered.removed.length) {
           updateSyncState({ 
             syncState: 'saving_local', 
             hasPendingLocalChanges: true, 
             lastLocalEditAt: Date.now() 
           })
-          
-          let delay = 150 // default drawing
-          if (hasDelete) delay = 0
-          else if (hasTextEdit && !hasDrawing) delay = 400
 
-          if (deltaTimer.current) clearTimeout(deltaTimer.current)
-          if (delay === 0) flushDeltas()
-          else deltaTimer.current = setTimeout(flushDeltas, delay)
+          if (!useStore.getState().isOnline) {
+             updateSyncState({ syncState: 'offline_dirty' })
+             return
+          }
+
+          const app_meta = {
+            boardMeta: boardMetaStore.getBoardMeta(boardId),
+            shapeMeta: shapeMetaStore.getRegistry(boardId)
+          }
+
+          const sent = sendMessage({ 
+            type: 'DELTA', 
+            changes: filtered,
+            baseRevision: baseRevision.current,
+            app_meta
+          })
+          
+          if (!sent) {
+            syncToServer(editor.store.getSnapshot('document'))
+          } else {
+            updateSyncState({ syncState: 'saving_remote', lastSyncAttemptAt: Date.now() })
+          }
         }
       },
       { scope: 'document', source: 'user' }
     )
-  }, [editor, sendMessage, syncToServer, updateSyncState, flushDeltas, boardId])
+  }, [editor, sendMessage, syncToServer, updateSyncState])
 
   // Lắng nghe force reload
   useEffect(() => {
@@ -357,7 +315,7 @@ export function useBoardSync(editor, boardId) {
           conflictDetails: null,
           pendingServerRefresh: false
         })
-        isSyncing.current = false
+        setTimeout(() => { isSyncing.current = false }, 150)
       }
     }
     window.addEventListener('INFININOTE_FORCE_RELOAD_SERVER', handleForceReload)

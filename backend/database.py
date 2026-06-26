@@ -140,24 +140,3 @@ async def get_boards_summary() -> list[dict]:
     summaries.sort(key=lambda x: x["updatedAt"], reverse=True)
     return summaries
 
-
-async def rename_board(board_id: str, new_title: str) -> bool:
-    """Đổi tên board (cập nhật app_meta.boardMeta.boardTitle và updated_at)."""
-    collection = get_board_collection()
-    updated_at = __import__("datetime").datetime.utcnow().isoformat()
-    result = await collection.update_one(
-        {"_id": board_id},
-        {"$set": {
-            "app_meta.boardMeta.boardTitle": new_title,
-            "updated_at": updated_at
-        }}
-    )
-    return result.modified_count > 0
-
-
-async def delete_board_by_id(board_id: str) -> bool:
-    """Xóa toàn bộ dữ liệu board."""
-    collection = get_board_collection()
-    result = await collection.delete_one({"_id": board_id})
-    return result.deleted_count > 0
-

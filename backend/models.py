@@ -19,10 +19,6 @@ class ImageUploadResponse(BaseModel):
     height: int
 
 
-class BoardRenamePayload(BaseModel):
-    title: str
-
-
 class WSMessage(BaseModel):
     """Cấu trúc message WebSocket giữa client ↔ server."""
     type: str           # "INIT_LOAD" | "DELTA" | "FULL_SYNC" | "PING" | "PONG"
