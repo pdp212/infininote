@@ -157,9 +157,30 @@ import OutlinePanel from '../features/outline/components/OutlinePanel'
 function AppOverlay() {
   const [showSearch, setShowSearch] = useState(false)
   const [showOutline, setShowOutline] = useState(false)
+  const [searchEnabled, setSearchEnabled] = useState(false)
+
+  // Post-mount: probe search endpoint — NEVER blocks board loading
+  useEffect(() => {
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+    let cancelled = false
+    const probe = async () => {
+      try {
+        const res = await fetch(`${API_URL.replace(/\/$/, '')}/api/boards/search-index`, {
+          method: 'HEAD',
+          signal: AbortSignal.timeout(4000)
+        })
+        if (!cancelled && res.ok) setSearchEnabled(true)
+      } catch (err) {
+        console.warn('[Search] Endpoint unavailable, Cmd+K disabled.', err)
+      }
+    }
+    // Delay probe until after editor mount — board load is never blocked
+    const t = setTimeout(probe, 1000)
+    return () => { cancelled = true; clearTimeout(t) }
+  }, [])
 
   useEffect(() => {
-    const handleSearch = () => setShowSearch(s => !s)
+    const handleSearch = () => { if (searchEnabled) setShowSearch(s => !s) }
     const handleOutline = () => setShowOutline(s => !s)
     
     window.addEventListener('TOGGLE_SEARCH_PANEL', handleSearch)
@@ -169,25 +190,25 @@ function AppOverlay() {
       window.removeEventListener('TOGGLE_SEARCH_PANEL', handleSearch)
       window.removeEventListener('TOGGLE_OUTLINE_PANEL', handleOutline)
     }
-  }, [])
+  }, [searchEnabled])
 
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.metaKey && e.key === 'k') {
         e.preventDefault()
-        setShowSearch(s => !s)
+        if (searchEnabled) setShowSearch(s => !s)
       }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [])
+  }, [searchEnabled])
 
   return (
     <>
       <FocusExitButton />
       <EmptyBoardHint />
       <BoardScreen />
-      {showSearch && <SearchPanel onClose={() => setShowSearch(false)} />}
+      {showSearch && searchEnabled && <SearchPanel onClose={() => setShowSearch(false)} />}
       {showOutline && <OutlinePanel onClose={() => setShowOutline(false)} />}
     </>
   )
@@ -289,15 +310,17 @@ function CanvasInner({ boardId }) {
 // ── Main Component ──────────────────────────────────────────────
 export default function InfiniCanvas({ boardId }) {
   const initialSnapshot = useStore(s => s.initialSnapshot)
-  const [loadState, setLoadState] = useState('loading_local') // loading_local, recovery_attempt, ready, load_error
+  const [loadState, setLoadState] = useState('rescuing') // rescuing, ready, load_error
   const [errorMsg, setErrorMsg] = useState('')
 
-  // Phase 4: Best-effort local IDB recovery
+  // Best-effort local IDB rescue — runs BEFORE Tldraw mounts
   useEffect(() => {
     if (!boardId) return
-    let timeoutId = setTimeout(() => {
-      if (loadState === 'loading_local') setLoadState('recovery_attempt')
-    }, 1000)
+    
+    // Safety valve: never block more than 3s waiting for IDB
+    const safetyTimer = setTimeout(() => {
+      setLoadState(prev => prev === 'rescuing' ? 'ready' : prev)
+    }, 3000)
 
     const tryRescue = async () => {
       try {
@@ -307,6 +330,7 @@ export default function InfiniCanvas({ boardId }) {
         req.onsuccess = (e) => {
           const db = e.target.result
           if (!db.objectStoreNames.contains(persistenceKey)) {
+            clearTimeout(safetyTimer)
             setLoadState('ready')
             return
           }
@@ -329,28 +353,31 @@ export default function InfiniCanvas({ boardId }) {
             if (fixed > 0) console.warn(`[LocalRecovery] Rescued ${fixed} corrupted shapes in IndexedDB!`)
           }
           
-          tx.oncomplete = () => setLoadState('ready')
+          tx.oncomplete = () => {
+            clearTimeout(safetyTimer)
+            setLoadState('ready')
+          }
           tx.onerror = () => {
-            console.error('[LocalRecovery] Tx error')
-            setLoadState('load_error')
-            setErrorMsg('Lỗi khi đọc bộ nhớ cục bộ.')
+            console.warn('[LocalRecovery] Tx error — opening board anyway')
+            clearTimeout(safetyTimer)
+            setLoadState('ready') // Don't block board on IDB error
           }
         }
         
         req.onerror = () => {
-          console.error('[LocalRecovery] IDB open error')
-          setLoadState('load_error')
-          setErrorMsg('Không thể mở IndexedDB.')
+          console.warn('[LocalRecovery] IDB open error — opening board anyway')
+          clearTimeout(safetyTimer)
+          setLoadState('ready') // Don't block board on IDB error
         }
       } catch (err) {
         console.warn('[LocalRecovery] Failed to run IDB rescue:', err)
-        setLoadState('load_error')
-        setErrorMsg(err.message)
+        clearTimeout(safetyTimer)
+        setLoadState('ready') // Don't block board on error
       }
     }
     
     tryRescue()
-    return () => clearTimeout(timeoutId)
+    return () => clearTimeout(safetyTimer)
   }, [boardId])
 
   const handleClearCache = () => {
@@ -365,25 +392,23 @@ export default function InfiniCanvas({ boardId }) {
 
   if (!boardId) return null
 
-  if (loadState === 'load_error' || loadState === 'recovery_attempt') {
+  // Only show error if we explicitly set it (not for IDB failures)
+  if (loadState === 'load_error') {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', background: '#1a1a1a', color: '#fff', fontFamily: 'sans-serif' }}>
         <h2 style={{ color: '#ef4444', marginBottom: '8px' }}>Lỗi tải bảng</h2>
-        <p style={{ color: '#aaa', marginBottom: '24px' }}>{errorMsg || 'Dữ liệu cục bộ của bảng có vẻ bị hỏng. Đang thử khôi phục...'}</p>
-        
-        {loadState === 'load_error' && (
-          <div style={{ display: 'flex', gap: '12px' }}>
-            <button onClick={() => window.location.reload()} style={{ padding: '8px 16px', background: '#374151', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
-              Tải lại trang
-            </button>
-            <button onClick={handleClearCache} style={{ padding: '8px 16px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
-              Xóa Cache Tldraw (Mất bản nháp)
-            </button>
-            <button onClick={() => window.location.href = '/'} style={{ padding: '8px 16px', background: 'transparent', border: '1px solid #555', color: '#fff', borderRadius: '4px', cursor: 'pointer' }}>
-              Về Dashboard
-            </button>
-          </div>
-        )}
+        <p style={{ color: '#aaa', marginBottom: '24px' }}>{errorMsg || 'Dữ liệu cục bộ của bảng có vẻ bị hỏng.'}</p>
+        <div style={{ display: 'flex', gap: '12px' }}>
+          <button onClick={() => window.location.reload()} style={{ padding: '8px 16px', background: '#374151', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+            Tải lại trang
+          </button>
+          <button onClick={handleClearCache} style={{ padding: '8px 16px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+            Xóa Cache Tldraw (Mất bản nháp)
+          </button>
+          <button onClick={() => window.location.href = '/'} style={{ padding: '8px 16px', background: 'transparent', border: '1px solid #555', color: '#fff', borderRadius: '4px', cursor: 'pointer' }}>
+            Về Dashboard
+          </button>
+        </div>
       </div>
     )
   }
