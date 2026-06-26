@@ -204,9 +204,6 @@ function AppOverlay() {
       <FocusExitButton />
       <EmptyBoardHint />
       {showSearch && searchEnabled && <SearchPanel onClose={() => setShowSearch(false)} />}
-      <div style={{ position: 'absolute', top: 8, right: 8, zIndex: 500 }}>
-        <TopRightStatusCluster />
-      </div>
     </>
   )
 }
