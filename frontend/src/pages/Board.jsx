@@ -2,9 +2,14 @@ import { useParams, Navigate } from 'react-router-dom'
 import InfiniCanvas from '../canvas/InfiniCanvas'
 import useStore from '../store/useStore'
 
+/**
+ * Board loading overlay — driven by boardPhase state machine.
+ * Shows while phase is not 'ready' or 'error'.
+ * 'error' renders inline in InfiniCanvas itself.
+ */
 function LoadingOverlay() {
-  const isLoading = useStore(s => s.isLoading)
-  if (!isLoading) return null
+  const boardPhase = useStore(s => s.boardPhase)
+  if (boardPhase === 'ready' || boardPhase === 'error') return null
   return (
     <div className="loading-overlay">
       <div className="spinner" />

@@ -218,19 +218,19 @@ import { useBoardSync } from '../features/boards/hooks/useBoardSync'
 import { useNoteWorkflow } from '../features/boards/hooks/useNoteWorkflow'
 import { useQuickCapture } from '../features/journal/useQuickCapture'
 
-// ── Canvas Inner (có editor context) ───────────────────────────
+// ── Canvas Inner (có editor context) ──────────────────────────
 function CanvasInner({ boardId }) {
   const editor = useEditor()
   const addToast = useStore(s => s.addToast)
-  const setIsLoading = useStore(s => s.setIsLoading)
+  const setBoardPhase = useStore(s => s.setBoardPhase)
 
   useEffect(() => {
     if (editor) {
       console.log('[BOOT] Editor mounted — CanvasInner ready, boardId:', boardId)
-      // → Clear the loading overlay. This is the ONLY place setIsLoading(false) is called.
-      setIsLoading(false)
+      // Single authoritative transition: mounting → ready
+      setBoardPhase('ready')
     }
-  }, [editor, boardId, setIsLoading])
+  }, [editor, boardId, setBoardPhase])
 
   // Kết nối hook đồng bộ
   useBoardSync(editor, boardId)
@@ -319,18 +319,20 @@ function CanvasInner({ boardId }) {
 // ── Main Component ──────────────────────────────────────────────
 export default function InfiniCanvas({ boardId }) {
   const initialSnapshot = useStore(s => s.initialSnapshot)
-  const [loadState, setLoadState] = useState('rescuing') // rescuing, ready, load_error
-  const [errorMsg, setErrorMsg] = useState('')
+  // Single state machine — store owns all phases: idb_rescue → mounting → ready | error
+  const boardPhase = useStore(s => s.boardPhase)
+  const boardPhaseError = useStore(s => s.boardPhaseError)
+  const setBoardPhase = useStore(s => s.setBoardPhase)
 
   // Best-effort local IDB rescue — runs BEFORE Tldraw mounts
   useEffect(() => {
     if (!boardId) return
-    console.log(`[BOOT] Start — boardId=${boardId}`)
+    console.log(`[BOOT] Start — boardId=${boardId} phase=${boardPhase}`)
     
     // Safety valve: never block more than 3s waiting for IDB
     const safetyTimer = setTimeout(() => {
-      console.warn('[BOOT] Safety valve fired (3s) — forcing ready')
-      setLoadState(prev => prev === 'rescuing' ? 'ready' : prev)
+      console.warn('[BOOT] Safety valve fired (3s) — forcing mounting')
+      setBoardPhase(prev => prev === 'idb_rescue' ? 'mounting' : prev)
     }, 3000)
 
     const tryRescue = async () => {
@@ -343,9 +345,9 @@ export default function InfiniCanvas({ boardId }) {
           const db = e.target.result
           console.log('[BOOT] IDB open OK — stores:', [...db.objectStoreNames])
           if (!db.objectStoreNames.contains(persistenceKey)) {
-            console.log('[BOOT] No local store found for this board — ready (new board)')
+            console.log('[BOOT] No local store found — transitioning idb_rescue → mounting')
             clearTimeout(safetyTimer)
-            setLoadState('ready')
+            setBoardPhase('mounting')
             return
           }
           
@@ -374,21 +376,21 @@ export default function InfiniCanvas({ boardId }) {
           }
           
           tx.oncomplete = () => {
-            console.log('[BOOT] IDB transaction complete — setLoadState(ready)')
+            console.log('[BOOT] IDB tx complete — idb_rescue → mounting')
             clearTimeout(safetyTimer)
-            setLoadState('ready')
+            setBoardPhase('mounting')
           }
           tx.onerror = (ev) => {
-            console.warn('[BOOT] IDB Tx error — opening board anyway:', ev.target?.error)
+            console.warn('[BOOT] IDB Tx error — continuing:', ev.target?.error)
             clearTimeout(safetyTimer)
-            setLoadState('ready') // Don't block board on IDB error
+            setBoardPhase('mounting')
           }
         }
         
         req.onerror = (ev) => {
-          console.warn('[BOOT] IDB open error — opening board anyway:', ev.target?.error)
+          console.warn('[BOOT] IDB open error — continuing:', ev.target?.error)
           clearTimeout(safetyTimer)
-          setLoadState('ready') // Don't block board on IDB error
+          setBoardPhase('mounting')
         }
 
         req.onblocked = () => {
@@ -397,12 +399,13 @@ export default function InfiniCanvas({ boardId }) {
       } catch (err) {
         console.warn('[BOOT] Rescue threw exception:', err)
         clearTimeout(safetyTimer)
-        setLoadState('ready') // Don't block board on error
+        setBoardPhase('mounting')
       }
     }
     
     tryRescue()
     return () => clearTimeout(safetyTimer)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [boardId])
 
   const handleClearCache = () => {
@@ -417,13 +420,13 @@ export default function InfiniCanvas({ boardId }) {
 
   if (!boardId) return null
 
-  // Only show error if we explicitly set it (not for IDB failures)
-  if (loadState === 'load_error') {
-    console.error('[BOOT] load_error state reached — showing error UI')
+  // Phase: error — show error UI inline (Board overlay hides itself for 'error' too)
+  if (boardPhase === 'error') {
+    console.error('[BOOT] boardPhase=error — showing error UI')
     return (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', background: '#1a1a1a', color: '#fff', fontFamily: 'sans-serif' }}>
         <h2 style={{ color: '#ef4444', marginBottom: '8px' }}>Lỗi tải bảng</h2>
-        <p style={{ color: '#aaa', marginBottom: '24px' }}>{errorMsg || 'Dữ liệu cục bộ của bảng có vẻ bị hỏng.'}</p>
+        <p style={{ color: '#aaa', marginBottom: '24px' }}>{boardPhaseError || 'Dữ liệu cục bộ của bảng có vẻ bị hỏng.'}</p>
         <div style={{ display: 'flex', gap: '12px' }}>
           <button onClick={() => window.location.reload()} style={{ padding: '8px 16px', background: '#374151', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
             Tải lại trang
@@ -439,12 +442,14 @@ export default function InfiniCanvas({ boardId }) {
     )
   }
 
-  if (loadState !== 'ready') {
-    console.log(`[BOOT] loadState=${loadState} — waiting (render blocked)`)
+  // Phase: idb_rescue — null render; Board.jsx overlay shows the spinner
+  // Phase: mounting — Tldraw renders; CanvasInner transitions to 'ready' on editor mount
+  if (boardPhase === 'idb_rescue') {
+    console.log('[BOOT] boardPhase=idb_rescue — waiting for IDB rescue to complete')
     return null
   }
 
-  console.log('[BOOT] loadState=ready — rendering Tldraw')
+  console.log(`[BOOT] boardPhase=${boardPhase} — rendering Tldraw`)
   return (
     <div className="canvas-wrapper">
       <Tldraw

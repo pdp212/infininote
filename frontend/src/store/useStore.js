@@ -36,9 +36,11 @@ const useStore = create((set) => ({
     toasts: state.toasts.filter(t => t.id !== id)
   })),
 
-  // Canvas loading
-  isLoading: true,
-  setIsLoading: (v) => set({ isLoading: v }),
+  // Board loading — single state machine
+  // Phases: 'idb_rescue' → 'mounting' → 'ready' | 'error'
+  boardPhase: 'idb_rescue',
+  boardPhaseError: null,
+  setBoardPhase: (phase, errorMsg = null) => set({ boardPhase: phase, boardPhaseError: errorMsg }),
 
   // Initial snapshot from server
   initialSnapshot: null,
