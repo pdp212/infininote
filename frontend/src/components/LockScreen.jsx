@@ -53,15 +53,14 @@ export default function LockScreen() {
     <div className="lock-overlay">
       <div className="lock-card">
         {/* Logo */}
-        <span className="lock-logo" role="img" aria-label="InfiniNote">∞</span>
+        <div className="lock-logo" role="img" aria-label="InfiniNote">∞</div>
 
         <h1 className="lock-title">InfiniNote</h1>
         <p className="lock-subtitle">
-          Không gian vẽ vô hạn cá nhân của bạn.<br />
-          Nhập mật khẩu để tiếp tục.
+          Mở khóa bảng để tiếp tục
         </p>
 
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} className="lock-form">
           <div className="lock-input-group">
             <input
               ref={inputRef}
@@ -70,35 +69,44 @@ export default function LockScreen() {
               type={showPass ? 'text' : 'password'}
               value={value}
               onChange={e => setValue(e.target.value)}
-              placeholder="Nhập mật khẩu..."
+              placeholder="Nhập passcode..."
               autoComplete="current-password"
               disabled={loading}
+              aria-label="Passcode"
             />
             <button
               type="button"
               className="lock-toggle-vis"
               onClick={() => setShowPass(v => !v)}
               tabIndex={-1}
-              aria-label="Toggle visibility"
+              aria-label={showPass ? "Ẩn passcode" : "Hiện passcode"}
             >
               {showPass ? '🙈' : '👁'}
             </button>
           </div>
 
-          <p className="lock-error">{error}</p>
+          <div className="lock-error-container">
+            {error && <p className="lock-error">{error}</p>}
+          </div>
 
           <button
             id="lock-submit-btn"
             type="submit"
             className="lock-btn"
             disabled={loading || !value}
+            aria-busy={loading}
           >
-            {loading ? 'Đang xác thực…' : 'Mở khóa →'}
+            {loading ? (
+              <span className="lock-spinner-text">
+                <span className="lock-spinner"></span>
+                Đang mở...
+              </span>
+            ) : 'Mở InfiniNote'}
           </button>
         </form>
 
         <p className="lock-footer">
-          🔒 Bảo vệ bằng Static Passcode • Dữ liệu lưu trên Cloud
+          Bảo mật bằng passcode cục bộ • Dữ liệu mã hóa trên cloud
         </p>
       </div>
     </div>

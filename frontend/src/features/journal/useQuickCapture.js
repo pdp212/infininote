@@ -2,6 +2,7 @@ import { useEditor, createShapeId } from '@tldraw/tldraw'
 import { useCallback } from 'react'
 import { useBoardJournalMeta } from './useBoardJournalMeta'
 import { getDefaultJournalHeaderText } from './journalTemplates'
+import { sanitizeShapeForTldraw } from '../../features/boards/utils/shapeStyleNormalizer'
 
 export function useQuickCapture(boardId) {
   const editor = useEditor()
@@ -13,7 +14,7 @@ export function useQuickCapture(boardId) {
     if (existing) return
 
     const id = createShapeId()
-    editor.createShape({
+    const shape = sanitizeShapeForTldraw({
       id,
       type: 'text',
       x: 100,
@@ -23,22 +24,22 @@ export function useQuickCapture(boardId) {
         size: 'xl',
         color: 'black',
         font: 'draw',
-        align: 'start'
+        textAlign: 'start' // FIX: use textAlign instead of align for text shape
       },
       meta: {
         infininoteRole: 'journal-header'
       }
     })
+    editor.createShape(shape)
   }, [editor, getJournalHeaderShape])
 
   const createQuickNote = useCallback(() => {
     if (!editor) return
     
-    // Temporarily switch tool to note to ensure proper mode if needed, or just insert it
     const pos = getNextJournalInsertionPoint()
     const id = createShapeId()
     
-    editor.createShape({
+    const shape = sanitizeShapeForTldraw({
       id,
       type: 'note',
       x: pos.x,
@@ -46,9 +47,10 @@ export function useQuickCapture(boardId) {
       props: {
         text: '',
         size: 'm',
-        color: 'yellow', // Could read from style memory later
+        color: 'yellow',
       }
     })
+    editor.createShape(shape)
     
     editor.select(id)
     editor.setCurrentTool('select')
@@ -62,7 +64,7 @@ export function useQuickCapture(boardId) {
     const pos = getNextJournalInsertionPoint()
     const id = createShapeId()
     
-    editor.createShape({
+    const shape = sanitizeShapeForTldraw({
       id,
       type: 'text',
       x: pos.x,
@@ -74,6 +76,7 @@ export function useQuickCapture(boardId) {
         w: 400
       }
     })
+    editor.createShape(shape)
     
     editor.select(id)
     editor.setCurrentTool('select')

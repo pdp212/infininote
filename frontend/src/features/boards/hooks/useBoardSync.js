@@ -1,10 +1,9 @@
-/**
- * useBoardSync.js — Custom hook quản lý đồng bộ dữ liệu Board với server
- * Board V5.1 Sync Trust UX
- */
 import { useEffect, useRef, useCallback } from 'react'
 import { useWebSocket } from '../../../canvas/useWebSocket'
 import useStore from '../../../store/useStore'
+import { sanitizeSnapshot } from '../utils/shapeStyleNormalizer'
+import { boardMetaStore } from '../meta/boardMetaStore'
+import { shapeMetaStore } from '../meta/shapeMetaStore'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
@@ -48,8 +47,10 @@ export function useBoardSync(editor, boardId) {
 
   // Phase 1/3: Áp dụng dữ liệu từ server (chỉ khi an toàn)
   const applyDocRecords = useCallback((payload, serverRevision) => {
-    if (!editor || !payload?.store) return
-    const docRecords = Object.values(payload.store).filter(r => !SESSION_TYPES.has(r.typeName))
+    if (!editor || !payload) return
+    const sanitizedPayload = sanitizeSnapshot(payload)
+    if (!sanitizedPayload?.store) return
+    const docRecords = Object.values(sanitizedPayload.store).filter(r => !SESSION_TYPES.has(r.typeName))
     if (docRecords.length === 0) return
     
     if (editor.getEditingShapeId()) {
@@ -75,6 +76,12 @@ export function useBoardSync(editor, boardId) {
     })
     setTimeout(() => { isSyncing.current = false }, 150)
   }, [editor, updateSyncState])
+
+  const mergeRemoteMeta = useCallback((boardId, app_meta) => {
+    if (!app_meta) return
+    if (app_meta.boardMeta) boardMetaStore.mergeRemoteMeta(boardId, app_meta.boardMeta)
+    if (app_meta.shapeMeta) shapeMetaStore.mergeRemoteRegistry(boardId, app_meta.shapeMeta)
+  }, [])
 
   // Xử lý xung đột
   const handleConflict = useCallback((serverRevision, serverSnapshot) => {
@@ -102,7 +109,7 @@ export function useBoardSync(editor, boardId) {
           createdAt: new Date().toISOString(),
           baseRevision: baseRevision.current,
           reason: 'conflict',
-          snapshot
+          snapshot // No need to sanitize backup since it's exactly what's on the client now
         }))
       } catch(e) {}
     }
@@ -114,17 +121,26 @@ export function useBoardSync(editor, boardId) {
 
     if (msg.type === 'INIT_LOAD') {
       applyDocRecords(msg.payload, msg.revision || 0)
+      mergeRemoteMeta(boardId, msg.app_meta)
     } else if (msg.type === 'FULL_SYNC') {
       if (!isSyncing.current) applyDocRecords(msg.payload, msg.revision || 0)
+      mergeRemoteMeta(boardId, msg.app_meta)
     } else if (msg.type === 'DELTA') {
-      if (isSyncing.current || !msg.changes) return
+      if (isSyncing.current && !msg.app_meta) return
       isSyncing.current = true
+      
+      if (msg.app_meta) mergeRemoteMeta(boardId, msg.app_meta)
+      
       if (msg.revision) {
         baseRevision.current = msg.revision
         updateSyncState({ lastRemoteRevision: msg.revision })
       }
       editor.store.mergeRemoteChanges(() => {
-        const toPut = [...Object.values(msg.changes.added || {}), ...Object.values(msg.changes.updated || {})]
+        // Deltas are just small records, we sanitize them on the fly
+        const addedSanitized = Object.values(msg.changes.added || {}).map(r => sanitizeSnapshot({ store: { [r.id]: r } }).store[r.id])
+        const updatedSanitized = Object.values(msg.changes.updated || {}).map(r => sanitizeSnapshot({ store: { [r.id]: r } }).store[r.id])
+        const toPut = [...addedSanitized, ...updatedSanitized].filter(Boolean)
+        
         if (toPut.length > 0) editor.store.put(toPut)
         const toRemove = msg.changes.removed || []
         if (toRemove.length > 0) editor.store.remove(toRemove)
@@ -144,7 +160,7 @@ export function useBoardSync(editor, boardId) {
         lastSyncError: null
       })
     }
-  }, [editor, applyDocRecords, updateSyncState, handleConflict])
+  }, [editor, applyDocRecords, updateSyncState, handleConflict, boardId, mergeRemoteMeta])
 
   const { sendMessage } = useWebSocket({ onMessage: handleWsMessage, boardId })
 
@@ -153,11 +169,20 @@ export function useBoardSync(editor, boardId) {
     if (!boardId) return
     updateSyncState({ lastSyncAttemptAt: Date.now() })
     try {
+      const sanitizedSnapshot = sanitizeSnapshot(snapshot)
       const baseUrl = API_URL.replace(/\/$/, '')
+      const app_meta = {
+        boardMeta: boardMetaStore.getBoardMeta(boardId),
+        shapeMeta: shapeMetaStore.getRegistry(boardId)
+      }
       const res = await fetch(`${baseUrl}/api/board/${boardId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ snapshot, baseRevision: baseRevision.current }),
+        body: JSON.stringify({ 
+          snapshot: sanitizedSnapshot, 
+          baseRevision: baseRevision.current,
+          app_meta
+        }),
       })
       if (res.status === 409) {
         const data = await res.json()
@@ -182,9 +207,19 @@ export function useBoardSync(editor, boardId) {
 
   const syncToServer = useDebounce(async (snapshot) => {
     updateSyncState({ syncState: 'saving_remote', lastSyncAttemptAt: Date.now() })
-    const sent = sendMessage({ type: 'FULL_SYNC', payload: snapshot, baseRevision: baseRevision.current })
+    const sanitizedSnapshot = sanitizeSnapshot(snapshot)
+    const app_meta = {
+      boardMeta: boardMetaStore.getBoardMeta(boardId),
+      shapeMeta: shapeMetaStore.getRegistry(boardId)
+    }
+    const sent = sendMessage({ 
+      type: 'FULL_SYNC', 
+      payload: sanitizedSnapshot, 
+      baseRevision: baseRevision.current,
+      app_meta
+    })
     if (!sent) {
-      await saveToServer(snapshot)
+      await saveToServer(sanitizedSnapshot)
     }
   }, 600)
 
@@ -201,10 +236,14 @@ export function useBoardSync(editor, boardId) {
         const filtered = { added: {}, updated: {}, removed: [] }
         
         for (const [id, rec] of Object.entries(changes.added)) {
-          if (!SESSION_TYPES.has(rec.typeName)) filtered.added[id] = rec
+          if (!SESSION_TYPES.has(rec.typeName)) {
+            filtered.added[id] = sanitizeSnapshot({ store: { [id]: rec } }).store[id]
+          }
         }
         for (const [id, recs] of Object.entries(changes.updated)) {
-          if (!SESSION_TYPES.has(recs[1].typeName)) filtered.updated[id] = recs[1]
+          if (!SESSION_TYPES.has(recs[1].typeName)) {
+            filtered.updated[id] = sanitizeSnapshot({ store: { [id]: recs[1] } }).store[id]
+          }
         }
         for (const [id, rec] of Object.entries(changes.removed)) {
           if (!SESSION_TYPES.has(rec.typeName)) filtered.removed.push(id)
@@ -222,10 +261,16 @@ export function useBoardSync(editor, boardId) {
              return
           }
 
+          const app_meta = {
+            boardMeta: boardMetaStore.getBoardMeta(boardId),
+            shapeMeta: shapeMetaStore.getRegistry(boardId)
+          }
+
           const sent = sendMessage({ 
             type: 'DELTA', 
             changes: filtered,
-            baseRevision: baseRevision.current
+            baseRevision: baseRevision.current,
+            app_meta
           })
           
           if (!sent) {

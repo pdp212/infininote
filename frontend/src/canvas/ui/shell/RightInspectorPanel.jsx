@@ -1,5 +1,6 @@
 import React from 'react'
 import { useBoardStyles } from '../hooks/useBoardStyles'
+import ShapeTagEditor from '../../../features/tags/components/ShapeTagEditor'
 
 const COLOR_PALETTE = [
   { id: 'black', hex: '#1a1a1a' },
@@ -85,6 +86,8 @@ export default function RightInspectorPanel() {
   return (
     <div className="infininote-panel board-right-inspector">
       
+      <ShapeTagEditor />
+
       {showColor && (
         <InspectorSection title="Color" isMixed={currentColor === 'mixed'}>
           <div className="inspector-color-grid">

@@ -29,19 +29,39 @@ export default function SyncDetailsPopover({ onClose }) {
   }
 
   const handleExportJson = () => {
-    if (!editor) return
-    const snapshot = editor.store.getSnapshot('document')
-    const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `infininote_export_${boardId}.json`
-    a.click()
-    URL.revokeObjectURL(url)
+    try {
+      const snapshot = editor.store.getSnapshot('document')
+      const { sanitizeSnapshot } = require('../../../features/boards/utils/shapeStyleNormalizer')
+      const sanitizedSnapshot = sanitizeSnapshot(snapshot)
+      
+      const { boardMetaStore } = require('../../../features/boards/meta/boardMetaStore')
+      const { shapeMetaStore } = require('../../../features/boards/meta/shapeMetaStore')
+
+      const data = {
+        snapshot: sanitizedSnapshot,
+        revision: baseRevision,
+        exportedAt: new Date().toISOString(),
+        boardId,
+        app_meta: {
+          boardMeta: boardMetaStore.getBoardMeta(boardId),
+          shapeMeta: shapeMetaStore.getRegistry(boardId)
+        }
+      }
+      
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `infininote-${boardId}-${Date.now()}.json`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (e) {
+      alert('Lỗi export JSON: ' + e.message)
+    }
   }
 
   const handleImportJson = (e) => {
-    const file = e.target.files[0]
+    const file = e.target.files?.[0]
     if (!file || !editor) return
     
     if (!window.confirm('Nhập dữ liệu sẽ THAY THẾ TOÀN BỘ nội dung board hiện tại. Bạn có chắc chắn?')) return
@@ -52,7 +72,19 @@ export default function SyncDetailsPopover({ onClose }) {
         const payload = JSON.parse(evt.target.result)
         const store = payload.snapshot ? payload.snapshot.store : (payload.store ? payload.store : payload)
         
-        const docRecords = Object.values(store).filter(r => !['instance', 'instance_page_state', 'camera', 'pointer', 'instance_presence'].includes(r.typeName))
+        // --- V5.2.1: Safe Snapshot Sanitizer for Import ---
+        const { sanitizeSnapshot } = require('../../../features/boards/utils/shapeStyleNormalizer')
+        const sanitizedStore = sanitizeSnapshot(store)
+        
+        // --- V5.3: Import App Meta ---
+        if (payload.app_meta) {
+          const { boardMetaStore } = require('../../../features/boards/meta/boardMetaStore')
+          const { shapeMetaStore } = require('../../../features/boards/meta/shapeMetaStore')
+          if (payload.app_meta.boardMeta) boardMetaStore.mergeRemoteMeta(boardId, payload.app_meta.boardMeta)
+          if (payload.app_meta.shapeMeta) shapeMetaStore.mergeRemoteRegistry(boardId, payload.app_meta.shapeMeta)
+        }
+        
+        const docRecords = Object.values(sanitizedStore.store || sanitizedStore).filter(r => !['instance', 'instance_page_state', 'camera', 'pointer', 'instance_presence'].includes(r.typeName))
         
         editor.store.mergeRemoteChanges(() => {
           // Clear current content first except page
@@ -61,9 +93,13 @@ export default function SyncDetailsPopover({ onClose }) {
           editor.store.put(docRecords)
         })
         
+        if (applyDocRecords) {
+          applyDocRecords(sanitizedStore.store || sanitizedStore, payload.revision || baseRevision)
+        }
+        e.target.value = ''
         alert('Đã nhập dữ liệu thành công!')
       } catch (err) {
-        alert('File không đúng định dạng: ' + err.message)
+        alert('File JSON không hợp lệ: ' + err.message)
       }
     }
     reader.readAsText(file)

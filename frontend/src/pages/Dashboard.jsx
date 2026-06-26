@@ -23,6 +23,25 @@ export default function Dashboard() {
         setBoards([])
       }
     }
+    
+    // Fetch global summaries to keep Dashboard in sync with server
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+    fetch(`${API_URL.replace(/\/$/, '')}/api/boards/search-index`)
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data) && data.length > 0) {
+          const merged = data.map(serverBoard => ({
+            id: serverBoard.boardId,
+            title: serverBoard.title || serverBoard.boardId,
+            boardType: serverBoard.boardType || 'board',
+            journalDate: serverBoard.journalDate,
+            lastAccessed: new Date(serverBoard.updatedAt).getTime()
+          }))
+          setBoards(merged)
+          localStorage.setItem('infininote-recent-boards', JSON.stringify(merged))
+        }
+      })
+      .catch(err => console.warn('Failed to fetch global boards for dashboard:', err))
   }, [])
 
   const createNewBoard = () => {

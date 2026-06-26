@@ -1,5 +1,6 @@
 import { useValue, DefaultColorStyle, DefaultSizeStyle, DefaultFontStyle, DefaultHorizontalAlignStyle, DefaultTextAlignStyle, DefaultDashStyle, DefaultFillStyle } from '@tldraw/tldraw'
 import { useBoardEditorBridge } from './useBoardEditorBridge'
+import { applySafeStyleToSelectedShapes, applySafeStyleToNextShapes } from '../../../features/boards/utils/applyBoardStyleToShapeType'
 
 const EMPTY_STYLES = {
   hasSelection: false,
@@ -97,31 +98,29 @@ export function useBoardStyles() {
   // Opacity is typically supported on all shapes, but let's check
   const showOpacity = opacityProp.isSupported
 
-  const applyStyle = (styleType, value) => {
-    if (!editor) return
-    try {
-      editor.mark('set style')
-      if (typeof editor.setStyleForSelectedShapes === 'function') {
-        editor.setStyleForSelectedShapes(styleType, value)
-      }
-      if (typeof editor.setStyleForNextShapes === 'function') {
-        editor.setStyleForNextShapes(styleType, value)
-      }
-    } catch (e) {
-      console.warn(`[useBoardStyles] Could not apply style: ${e.message}`)
-    }
+  const setColor = (value) => {
+    applySafeStyleToSelectedShapes(editor, 'color', value)
+    applySafeStyleToNextShapes(editor, 'color', value)
   }
-
-  const setColor = (value) => applyStyle(DefaultColorStyle, value)
-  const setSize = (value) => applyStyle(DefaultSizeStyle, value)
-  const setFont = (value) => applyStyle(DefaultFontStyle, value)
-  const setDash = (value) => applyStyle(DefaultDashStyle, value)
-  const setFill = (value) => applyStyle(DefaultFillStyle, value)
-  
+  const setSize = (value) => {
+    applySafeStyleToSelectedShapes(editor, 'size', value)
+    applySafeStyleToNextShapes(editor, 'size', value)
+  }
+  const setFont = (value) => {
+    applySafeStyleToSelectedShapes(editor, 'font', value)
+    applySafeStyleToNextShapes(editor, 'font', value)
+  }
+  const setDash = (value) => {
+    applySafeStyleToSelectedShapes(editor, 'dash', value)
+    applySafeStyleToNextShapes(editor, 'dash', value)
+  }
+  const setFill = (value) => {
+    applySafeStyleToSelectedShapes(editor, 'fill', value)
+    applySafeStyleToNextShapes(editor, 'fill', value)
+  }
   const setAlign = (value) => {
-    // Attempt to set both, Tldraw ignores what doesn't apply to specific shapes
-    applyStyle(DefaultHorizontalAlignStyle, value)
-    applyStyle(DefaultTextAlignStyle, value)
+    applySafeStyleToSelectedShapes(editor, 'align', value)
+    applySafeStyleToNextShapes(editor, 'align', value)
   }
 
   const setOpacity = (value) => {

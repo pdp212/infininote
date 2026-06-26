@@ -149,12 +149,44 @@ function EmptyBoardHint() {
   )
 }
 
+import SearchPanel from '../features/search/components/SearchPanel'
+import OutlinePanel from '../features/outline/components/OutlinePanel'
+
 function AppOverlay() {
+  const [showSearch, setShowSearch] = useState(false)
+  const [showOutline, setShowOutline] = useState(false)
+
+  useEffect(() => {
+    const handleSearch = () => setShowSearch(s => !s)
+    const handleOutline = () => setShowOutline(s => !s)
+    
+    window.addEventListener('TOGGLE_SEARCH_PANEL', handleSearch)
+    window.addEventListener('TOGGLE_OUTLINE_PANEL', handleOutline)
+    
+    return () => {
+      window.removeEventListener('TOGGLE_SEARCH_PANEL', handleSearch)
+      window.removeEventListener('TOGGLE_OUTLINE_PANEL', handleOutline)
+    }
+  }, [])
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.metaKey && e.key === 'k') {
+        e.preventDefault()
+        setShowSearch(s => !s)
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
+
   return (
     <>
       <FocusExitButton />
       <EmptyBoardHint />
       <BoardScreen />
+      {showSearch && <SearchPanel onClose={() => setShowSearch(false)} />}
+      {showOutline && <OutlinePanel onClose={() => setShowOutline(false)} />}
     </>
   )
 }
@@ -256,8 +288,108 @@ function CanvasInner({ boardId }) {
 // ── Main Component ──────────────────────────────────────────────
 export default function InfiniCanvas({ boardId }) {
   const initialSnapshot = useStore(s => s.initialSnapshot)
+  const [loadState, setLoadState] = useState('loading_local') // loading_local, recovery_attempt, ready, load_error
+  const [errorMsg, setErrorMsg] = useState('')
+
+  // Phase 4: Best-effort local IDB recovery
+  useEffect(() => {
+    if (!boardId) return
+    let timeoutId = setTimeout(() => {
+      if (loadState === 'loading_local') setLoadState('recovery_attempt')
+    }, 1000)
+
+    const tryRescue = async () => {
+      try {
+        const { sanitizeShapeForTldraw } = require('../features/boards/utils/shapeStyleNormalizer')
+        
+        const persistenceKey = `infininote-board-${boardId}`
+        const req = indexedDB.open('tldraw')
+        
+        req.onsuccess = (e) => {
+          const db = e.target.result
+          if (!db.objectStoreNames.contains(persistenceKey)) {
+            setLoadState('ready')
+            return
+          }
+          
+          const tx = db.transaction(persistenceKey, 'readwrite')
+          const store = tx.objectStore(persistenceKey)
+          const getAll = store.getAll()
+          
+          getAll.onsuccess = () => {
+            let fixed = 0
+            for (const record of getAll.result) {
+              if (record && record.typeName === 'shape') {
+                const clean = sanitizeShapeForTldraw(record)
+                if (JSON.stringify(clean) !== JSON.stringify(record)) {
+                  store.put(clean)
+                  fixed++
+                }
+              }
+            }
+            if (fixed > 0) console.warn(`[LocalRecovery] Rescued ${fixed} corrupted shapes in IndexedDB!`)
+          }
+          
+          tx.oncomplete = () => setLoadState('ready')
+          tx.onerror = () => {
+            console.error('[LocalRecovery] Tx error')
+            setLoadState('load_error')
+            setErrorMsg('Lỗi khi đọc bộ nhớ cục bộ.')
+          }
+        }
+        
+        req.onerror = () => {
+          console.error('[LocalRecovery] IDB open error')
+          setLoadState('load_error')
+          setErrorMsg('Không thể mở IndexedDB.')
+        }
+      } catch (err) {
+        console.warn('[LocalRecovery] Failed to run IDB rescue:', err)
+        setLoadState('load_error')
+        setErrorMsg(err.message)
+      }
+    }
+    
+    tryRescue()
+    return () => clearTimeout(timeoutId)
+  }, [boardId])
+
+  const handleClearCache = () => {
+    try {
+      const req = indexedDB.deleteDatabase('tldraw')
+      req.onsuccess = () => window.location.reload()
+      req.onerror = () => alert('Không thể xoá cache')
+    } catch (e) {
+      alert('Lỗi xoá cache: ' + e.message)
+    }
+  }
 
   if (!boardId) return null
+
+  if (loadState === 'load_error' || loadState === 'recovery_attempt') {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', background: '#1a1a1a', color: '#fff', fontFamily: 'sans-serif' }}>
+        <h2 style={{ color: '#ef4444', marginBottom: '8px' }}>Lỗi tải bảng</h2>
+        <p style={{ color: '#aaa', marginBottom: '24px' }}>{errorMsg || 'Dữ liệu cục bộ của bảng có vẻ bị hỏng. Đang thử khôi phục...'}</p>
+        
+        {loadState === 'load_error' && (
+          <div style={{ display: 'flex', gap: '12px' }}>
+            <button onClick={() => window.location.reload()} style={{ padding: '8px 16px', background: '#374151', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+              Tải lại trang
+            </button>
+            <button onClick={handleClearCache} style={{ padding: '8px 16px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+              Xóa Cache Tldraw (Mất bản nháp)
+            </button>
+            <button onClick={() => window.location.href = '/'} style={{ padding: '8px 16px', background: 'transparent', border: '1px solid #555', color: '#fff', borderRadius: '4px', cursor: 'pointer' }}>
+              Về Dashboard
+            </button>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  if (loadState !== 'ready') return null
 
   return (
     <div className="canvas-wrapper">
