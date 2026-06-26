@@ -223,6 +223,12 @@ function CanvasInner({ boardId }) {
   const editor = useEditor()
   const addToast = useStore(s => s.addToast)
 
+  useEffect(() => {
+    if (editor) {
+      console.log('[BOOT] Editor mounted — CanvasInner ready, boardId:', boardId)
+    }
+  }, [editor, boardId])
+
   // Kết nối hook đồng bộ
   useBoardSync(editor, boardId)
   // Kết nối hook note workflow
@@ -316,20 +322,25 @@ export default function InfiniCanvas({ boardId }) {
   // Best-effort local IDB rescue — runs BEFORE Tldraw mounts
   useEffect(() => {
     if (!boardId) return
+    console.log(`[BOOT] Start — boardId=${boardId}`)
     
     // Safety valve: never block more than 3s waiting for IDB
     const safetyTimer = setTimeout(() => {
+      console.warn('[BOOT] Safety valve fired (3s) — forcing ready')
       setLoadState(prev => prev === 'rescuing' ? 'ready' : prev)
     }, 3000)
 
     const tryRescue = async () => {
       try {
+        console.log('[BOOT] IDB rescue: opening tldraw database...')
         const persistenceKey = `infininote-board-${boardId}`
         const req = indexedDB.open('tldraw')
         
         req.onsuccess = (e) => {
           const db = e.target.result
+          console.log('[BOOT] IDB open OK — stores:', [...db.objectStoreNames])
           if (!db.objectStoreNames.contains(persistenceKey)) {
+            console.log('[BOOT] No local store found for this board — ready (new board)')
             clearTimeout(safetyTimer)
             setLoadState('ready')
             return
@@ -340,6 +351,7 @@ export default function InfiniCanvas({ boardId }) {
           const getAll = store.getAll()
           
           getAll.onsuccess = () => {
+            console.log(`[BOOT] IDB getAll OK — ${getAll.result.length} records`)
             let fixed = 0
             for (const record of getAll.result) {
               if (record && record.typeName === 'shape') {
@@ -350,27 +362,37 @@ export default function InfiniCanvas({ boardId }) {
                 }
               }
             }
-            if (fixed > 0) console.warn(`[LocalRecovery] Rescued ${fixed} corrupted shapes in IndexedDB!`)
+            if (fixed > 0) console.warn(`[BOOT] Rescued ${fixed} corrupted shapes in IndexedDB!`)
+            else console.log('[BOOT] IDB clean — no shape fixes needed')
+          }
+
+          getAll.onerror = () => {
+            console.warn('[BOOT] IDB getAll error — continuing anyway')
           }
           
           tx.oncomplete = () => {
+            console.log('[BOOT] IDB transaction complete — setLoadState(ready)')
             clearTimeout(safetyTimer)
             setLoadState('ready')
           }
-          tx.onerror = () => {
-            console.warn('[LocalRecovery] Tx error — opening board anyway')
+          tx.onerror = (ev) => {
+            console.warn('[BOOT] IDB Tx error — opening board anyway:', ev.target?.error)
             clearTimeout(safetyTimer)
             setLoadState('ready') // Don't block board on IDB error
           }
         }
         
-        req.onerror = () => {
-          console.warn('[LocalRecovery] IDB open error — opening board anyway')
+        req.onerror = (ev) => {
+          console.warn('[BOOT] IDB open error — opening board anyway:', ev.target?.error)
           clearTimeout(safetyTimer)
           setLoadState('ready') // Don't block board on IDB error
         }
+
+        req.onblocked = () => {
+          console.warn('[BOOT] IDB blocked (another tab has the DB open). Safety valve will fire.')
+        }
       } catch (err) {
-        console.warn('[LocalRecovery] Failed to run IDB rescue:', err)
+        console.warn('[BOOT] Rescue threw exception:', err)
         clearTimeout(safetyTimer)
         setLoadState('ready') // Don't block board on error
       }
@@ -394,6 +416,7 @@ export default function InfiniCanvas({ boardId }) {
 
   // Only show error if we explicitly set it (not for IDB failures)
   if (loadState === 'load_error') {
+    console.error('[BOOT] load_error state reached — showing error UI')
     return (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', background: '#1a1a1a', color: '#fff', fontFamily: 'sans-serif' }}>
         <h2 style={{ color: '#ef4444', marginBottom: '8px' }}>Lỗi tải bảng</h2>
@@ -413,8 +436,12 @@ export default function InfiniCanvas({ boardId }) {
     )
   }
 
-  if (loadState !== 'ready') return null
+  if (loadState !== 'ready') {
+    console.log(`[BOOT] loadState=${loadState} — waiting (render blocked)`)
+    return null
+  }
 
+  console.log('[BOOT] loadState=ready — rendering Tldraw')
   return (
     <div className="canvas-wrapper">
       <Tldraw

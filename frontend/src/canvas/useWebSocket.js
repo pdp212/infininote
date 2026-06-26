@@ -51,7 +51,7 @@ export function useWebSocket({ onMessage, boardId }) {
 
       ws.onopen = () => {
         if (!isMounted.current) return
-        console.log('[WS] Connected ✅')
+        console.log('[BOOT][WS] Connected ✅')
         setConnectionStatus('connected')
         delayRef.current = INITIAL_DELAY // reset backoff
         startHeartbeat(ws)
@@ -70,12 +70,12 @@ export function useWebSocket({ onMessage, boardId }) {
       }
 
       ws.onerror = (err) => {
-        console.warn('[WS] Error:', err)
+        console.warn('[BOOT][WS] Error:', err)
       }
 
       ws.onclose = () => {
         if (!isMounted.current) return
-        console.log(`[WS] Disconnected. Reconnecting in ${delayRef.current}ms…`)
+        console.log(`[BOOT][WS] Disconnected. Reconnecting in ${delayRef.current}ms…`)
         clearTimers()
         setConnectionStatus('offline')
 
@@ -85,7 +85,7 @@ export function useWebSocket({ onMessage, boardId }) {
         }, delayRef.current)
       }
     } catch (err) {
-      console.error('[WS] Failed to create:', err)
+      console.error('[BOOT][WS] Failed to create:', err)
       setConnectionStatus('offline')
     }
   }, [onMessage, setConnectionStatus, startHeartbeat, clearTimers, boardId])

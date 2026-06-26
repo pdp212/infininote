@@ -117,12 +117,17 @@ export function useBoardSync(editor, boardId) {
 
   // Phase 5: Xử lý WS Message
   const handleWsMessage = useCallback((msg) => {
-    if (!editor || !msg) return
+    if (!editor || !msg) {
+      if (!editor) console.warn('[BOOT][Sync] WS message received but editor is null — skipping')
+      return
+    }
 
     if (msg.type === 'INIT_LOAD') {
+      console.log('[BOOT][Sync] INIT_LOAD received, revision:', msg.revision, 'records:', Object.keys(msg.payload?.store || {}).length)
       applyDocRecords(msg.payload, msg.revision || 0)
       mergeRemoteMeta(boardId, msg.app_meta)
     } else if (msg.type === 'FULL_SYNC') {
+      console.log('[BOOT][Sync] FULL_SYNC received')
       if (!isSyncing.current) applyDocRecords(msg.payload, msg.revision || 0)
       mergeRemoteMeta(boardId, msg.app_meta)
     } else if (msg.type === 'DELTA') {
