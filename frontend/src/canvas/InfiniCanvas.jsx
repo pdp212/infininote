@@ -222,12 +222,15 @@ import { useQuickCapture } from '../features/journal/useQuickCapture'
 function CanvasInner({ boardId }) {
   const editor = useEditor()
   const addToast = useStore(s => s.addToast)
+  const setIsLoading = useStore(s => s.setIsLoading)
 
   useEffect(() => {
     if (editor) {
       console.log('[BOOT] Editor mounted — CanvasInner ready, boardId:', boardId)
+      // → Clear the loading overlay. This is the ONLY place setIsLoading(false) is called.
+      setIsLoading(false)
     }
-  }, [editor, boardId])
+  }, [editor, boardId, setIsLoading])
 
   // Kết nối hook đồng bộ
   useBoardSync(editor, boardId)
