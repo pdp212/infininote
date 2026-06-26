@@ -37,6 +37,13 @@ async def get_board(board_id: str) -> dict | None:
     return doc
 
 
+async def delete_board(board_id: str) -> bool:
+    """Xóa dữ liệu canvas khỏi MongoDB."""
+    collection = get_board_collection()
+    res = await collection.delete_one({"_id": board_id})
+    return res.deleted_count > 0
+
+
 async def upsert_board(board_id: str, snapshot: dict, base_revision: int = None, app_meta: dict = None) -> dict:
     """Lưu/cập nhật toàn bộ snapshot của canvas vào MongoDB."""
     collection = get_board_collection()

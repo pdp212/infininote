@@ -12,7 +12,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Uplo
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
-from database import get_board, upsert_board, get_client, apply_delta, get_boards_summary
+from database import get_board, upsert_board, get_client, apply_delta, get_boards_summary, delete_board
 from models import SnapshotPayload, ImageUploadResponse, BoardSummary
 
 load_dotenv()
@@ -151,6 +151,13 @@ async def save_board_legacy(payload: SnapshotPayload):
     """Fallback cho các client PWA cũ chưa cập nhật URL."""
     return await save_board(BOARD_ID, payload)
 
+@app.delete("/api/boards/{board_id}")
+async def delete_board_endpoint(board_id: str):
+    """Xóa một bảng vĩnh viễn khỏi server."""
+    success = await delete_board(board_id)
+    if not success:
+        raise HTTPException(404, "Board not found or already deleted")
+    return {"status": "deleted", "board_id": board_id}
 
 @app.post("/api/upload-image", response_model=ImageUploadResponse)
 async def upload_image(file: UploadFile = File(...)):
