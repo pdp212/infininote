@@ -15,6 +15,8 @@ import BoardScreen from './ui/BoardScreen'
 import { AssetRecordType } from '@tldraw/tlschema'
 import { useWebSocket } from './useWebSocket'
 import useStore from '../store/useStore'
+import { getOrCreateTodayJournalBoard } from '../features/journal/journalBoardService'
+import { sanitizeShapeForTldraw } from '../features/boards/utils/shapeStyleNormalizer'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
@@ -232,7 +234,6 @@ function CanvasInner({ boardId }) {
           createQuickText()
         } else if (e.key.toLowerCase() === 'j') {
           e.preventDefault()
-          const { getOrCreateTodayJournalBoard } = require('../features/journal/journalBoardService')
           const today = getOrCreateTodayJournalBoard()
           window.location.href = `/board/${today.id}`
         }
@@ -300,8 +301,6 @@ export default function InfiniCanvas({ boardId }) {
 
     const tryRescue = async () => {
       try {
-        const { sanitizeShapeForTldraw } = require('../features/boards/utils/shapeStyleNormalizer')
-        
         const persistenceKey = `infininote-board-${boardId}`
         const req = indexedDB.open('tldraw')
         

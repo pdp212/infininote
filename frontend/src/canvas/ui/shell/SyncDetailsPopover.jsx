@@ -1,6 +1,9 @@
 import React, { useRef } from 'react'
 import useStore from '../../../store/useStore'
 import { useBoardEditorBridge } from '../hooks/useBoardEditorBridge'
+import { sanitizeSnapshot } from '../../../features/boards/utils/shapeStyleNormalizer'
+import { boardMetaStore } from '../../../features/boards/meta/boardMetaStore'
+import { shapeMetaStore } from '../../../features/boards/meta/shapeMetaStore'
 
 export default function SyncDetailsPopover({ onClose }) {
   const syncState = useStore(s => s.syncState)
@@ -31,11 +34,7 @@ export default function SyncDetailsPopover({ onClose }) {
   const handleExportJson = () => {
     try {
       const snapshot = editor.store.getSnapshot('document')
-      const { sanitizeSnapshot } = require('../../../features/boards/utils/shapeStyleNormalizer')
       const sanitizedSnapshot = sanitizeSnapshot(snapshot)
-      
-      const { boardMetaStore } = require('../../../features/boards/meta/boardMetaStore')
-      const { shapeMetaStore } = require('../../../features/boards/meta/shapeMetaStore')
 
       const data = {
         snapshot: sanitizedSnapshot,
@@ -73,13 +72,10 @@ export default function SyncDetailsPopover({ onClose }) {
         const store = payload.snapshot ? payload.snapshot.store : (payload.store ? payload.store : payload)
         
         // --- V5.2.1: Safe Snapshot Sanitizer for Import ---
-        const { sanitizeSnapshot } = require('../../../features/boards/utils/shapeStyleNormalizer')
         const sanitizedStore = sanitizeSnapshot(store)
         
         // --- V5.3: Import App Meta ---
         if (payload.app_meta) {
-          const { boardMetaStore } = require('../../../features/boards/meta/boardMetaStore')
-          const { shapeMetaStore } = require('../../../features/boards/meta/shapeMetaStore')
           if (payload.app_meta.boardMeta) boardMetaStore.mergeRemoteMeta(boardId, payload.app_meta.boardMeta)
           if (payload.app_meta.shapeMeta) shapeMetaStore.mergeRemoteRegistry(boardId, payload.app_meta.shapeMeta)
         }
