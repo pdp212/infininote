@@ -145,3 +145,17 @@ async def get_boards_summary() -> list[dict]:
     summaries.sort(key=lambda x: x["updatedAt"], reverse=True)
     return summaries
 
+
+async def rename_board(board_id: str, new_title: str) -> bool:
+    """Cập nhật tiêu đề bảng và updatedAt."""
+    collection = get_board_collection()
+    now_iso = datetime.utcnow().isoformat() + "Z"
+    
+    result = await collection.update_one(
+        {"_id": board_id},
+        {"$set": {
+            "app_meta.boardMeta.boardTitle": new_title,
+            "updated_at": now_iso
+        }}
+    )
+    return result.modified_count > 0

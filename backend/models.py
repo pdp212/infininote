@@ -33,3 +33,7 @@ class BoardSummary(BaseModel):
     updatedAt: str
     textPreview: list[str] = []
 
+
+class BoardRenamePayload(BaseModel):
+    title: str
+

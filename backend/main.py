@@ -12,8 +12,8 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Uplo
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
-from database import get_board, upsert_board, get_client, apply_delta, get_boards_summary, delete_board
-from models import SnapshotPayload, ImageUploadResponse, BoardSummary
+from database import get_board, upsert_board, get_client, apply_delta, get_boards_summary, delete_board, rename_board
+from models import SnapshotPayload, ImageUploadResponse, BoardSummary, BoardRenamePayload
 
 load_dotenv()
 
@@ -158,6 +158,14 @@ async def delete_board_endpoint(board_id: str):
     if not success:
         raise HTTPException(404, "Board not found or already deleted")
     return {"status": "deleted", "board_id": board_id}
+
+@app.patch("/api/boards/{board_id}/title")
+async def rename_board_endpoint(board_id: str, payload: BoardRenamePayload):
+    """Cập nhật tiêu đề bảng."""
+    success = await rename_board(board_id, payload.title)
+    if not success:
+        raise HTTPException(404, "Board not found")
+    return {"status": "renamed", "board_id": board_id, "title": payload.title}
 
 @app.post("/api/upload-image", response_model=ImageUploadResponse)
 async def upload_image(file: UploadFile = File(...)):

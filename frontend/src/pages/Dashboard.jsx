@@ -29,13 +29,32 @@ export default function Dashboard() {
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data) && data.length > 0) {
-          const merged = data.map(serverBoard => ({
-            id: serverBoard.boardId,
-            title: serverBoard.title || serverBoard.boardId,
-            lastAccessed: new Date(serverBoard.updatedAt).getTime()
-          }))
-          setBoards(merged)
-          localStorage.setItem('infininote-recent-boards', JSON.stringify(merged))
+          setBoards(prevBoards => {
+            const localMap = new Map(prevBoards.map(b => [b.id, b]))
+            const mergedMap = new Map()
+
+            // Update with server data
+            data.forEach(serverBoard => {
+              const serverLastAccessed = new Date(serverBoard.updatedAt).getTime()
+              const local = localMap.get(serverBoard.boardId)
+              
+              mergedMap.set(serverBoard.boardId, {
+                id: serverBoard.boardId,
+                title: serverBoard.title || serverBoard.boardId,
+                lastAccessed: local && local.lastAccessed > serverLastAccessed ? local.lastAccessed : serverLastAccessed
+              })
+              localMap.delete(serverBoard.boardId)
+            })
+
+            // Keep local-only boards
+            localMap.forEach((localBoard, id) => {
+              mergedMap.set(id, localBoard)
+            })
+
+            const finalBoards = Array.from(mergedMap.values()).sort((a, b) => b.lastAccessed - a.lastAccessed)
+            localStorage.setItem('infininote-recent-boards', JSON.stringify(finalBoards))
+            return finalBoards
+          })
         }
       })
       .catch(err => console.warn('Failed to fetch global boards for dashboard:', err))
@@ -67,31 +86,62 @@ export default function Dashboard() {
     setOpenMenuId(prev => prev === id ? null : id)
   }
 
-  const renameBoard = (e, board) => {
+  const renameBoard = async (e, board) => {
     e.stopPropagation()
     setOpenMenuId(null)
     const newTitle = window.prompt('Nhập tên mới cho bảng:', board.title)
-    if (newTitle && newTitle.trim()) {
-      const updated = boards.map(b => b.id === board.id ? { ...b, title: newTitle.trim() } : b)
+    if (newTitle && newTitle.trim() && newTitle.trim() !== board.title) {
+      const cleanTitle = newTitle.trim()
+      const previousBoards = [...boards]
+      
+      // Optimistic update (cập nhật luôn updatedAt để nhảy lên đầu)
+      const now = Date.now()
+      let updated = boards.map(b => b.id === board.id ? { ...b, title: cleanTitle, lastAccessed: now } : b)
+      updated.sort((a, b) => b.lastAccessed - a.lastAccessed)
+      
       setBoards(updated)
       localStorage.setItem('infininote-recent-boards', JSON.stringify(updated))
+
+      try {
+        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+        const res = await fetch(`${API_URL.replace(/\/$/, '')}/api/boards/${board.id}/title`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title: cleanTitle })
+        })
+        if (!res.ok) throw new Error('API error')
+      } catch (err) {
+        console.warn('Lỗi khi đổi tên bảng trên server:', err)
+        alert('Không thể đổi tên bảng. Đang hoàn tác...')
+        setBoards(previousBoards)
+        localStorage.setItem('infininote-recent-boards', JSON.stringify(previousBoards))
+      }
     }
   }
 
-  const deleteBoard = (e, board) => {
+  const deleteBoard = async (e, board) => {
     e.stopPropagation()
     setOpenMenuId(null)
     if (window.confirm(`Bạn có chắc chắn muốn xóa bảng "${board.title}"?`)) {
-      // Xoá trên giao diện và local storage trước để phản hồi nhanh (Optimistic Update)
+      const previousBoards = [...boards]
+      
+      // Optimistic Update
       const updated = boards.filter(b => b.id !== board.id)
       setBoards(updated)
       localStorage.setItem('infininote-recent-boards', JSON.stringify(updated))
 
-      // Gọi API xoá trên server
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
-      fetch(`${API_URL.replace(/\/$/, '')}/api/boards/${board.id}`, {
-        method: 'DELETE'
-      }).catch(err => console.warn('Lỗi khi xoá bảng trên server:', err))
+      try {
+        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+        const res = await fetch(`${API_URL.replace(/\/$/, '')}/api/boards/${board.id}`, {
+          method: 'DELETE'
+        })
+        if (!res.ok) throw new Error('API error')
+      } catch (err) {
+        console.warn('Lỗi khi xoá bảng trên server:', err)
+        alert('Không thể xóa bảng. Đang hoàn tác...')
+        setBoards(previousBoards)
+        localStorage.setItem('infininote-recent-boards', JSON.stringify(previousBoards))
+      }
     }
   }
 
